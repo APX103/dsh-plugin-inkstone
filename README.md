@@ -23,30 +23,15 @@ Settings ──端砚 tab──► AK/SK sign-in ──► Agent Registry ──
 
 - **One install, full integration** — a settings tab appears, the `subagent_a2a` tool registers, roster
   edits persist in the profile and hot-rebuild providers without a restart.
-- **Full auth coverage** — registry `auth_scheme_type` maps straight onto request headers:
-  `http` → OpenXLab SSO bearer · `token_exchange` / `orbit_jwt` → STS-exchanged ticket (real TTL cached) ·
-  `none` → anonymous.
-- **Resilient A2A 1.0 client** — card probing with HTML-shell fallthrough, frozen-endpoint binding,
-  SSE turn consumption, and history recovery for agents that answer only through `GetTask`.
-- **Continuation** — delegating to the same agent again continues the same remote conversation
-  (`contextId`), including outline-confirm workflows.
+- **Agent Registry** — browse the A2A agent directory, delegate to remote agents like native subagents;
+  registry `auth_scheme_type` maps straight onto request headers (SSO bearer / STS ticket / anonymous).
 - **SCP Hub services** — search the SCP Hub catalog and add MCP servers; each enabled SCP mounts one
-  `dsh-mcp-client` child (streamable-http with an auto-exchanged `SCP-HUB-API-KEY`, TTL-cached in the
-  credentials store) so its tools appear as `mcp__<server>__*`.
+  `dsh-mcp-client` child (streamable-http with an auto-exchanged `SCP-HUB-API-KEY`) so its tools appear
+  as `mcp__<server>__*`.
 - **Skills** — install catalog skills (SKILL.md + toolkit zip) atomically under the skills root and
   register them as runtime skills; the agent sees them in its skill catalog immediately.
 
-## Verified against staging
-
-| Resource | Kind | Status |
-| --- | --- | --- |
-| a2a-test-agent | A2A · orbit_jwt | ✅ streaming + artifacts |
-| MolClaw-agent | A2A · orbit_jwt | ✅ answers via artifacts |
-| ep-agent | A2A · token_exchange | ✅ |
-| caicopilot-agent | A2A · http | ✅ |
-| EarthLink | A2A · http | ✅ connectivity/auth; empty replies are a known staging upstream quota issue |
-| ToolUniverse | SCP · MCP | ✅ 1,894 tools mounted as `mcp__tooluniverse__*` |
-| BaiChuanShuHui | Skill | ✅ SKILL.md + 140-file toolkit installed and visible in the skill catalog |
+Design notes and verification records live in [doc/](doc/).
 
 ## Install
 

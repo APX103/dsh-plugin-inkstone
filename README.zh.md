@@ -23,28 +23,14 @@ SCP Hub 的 MCP 服务、安装平台发布的技能。
 
 - **一次安装、完整集成** —— 设置里出现独立 Tab，`subagent_a2a` 工具自动注册；名单写入 profile
   用户层持久保存，改动即时热重建 provider，无需重启。
-- **鉴权全覆盖** —— registry 的 `auth_scheme_type` 直接映射请求头：`http` → OpenXLab SSO 直带 ·
-  `token_exchange` / `orbit_jwt` → STS 换票（按真实 TTL 缓存）· `none` → 匿名。
-- **健壮的 A2A 1.0 客户端** —— 卡片探测带 HTML 壳回退、冻结端点绑定、SSE 流消费、以及针对
-  「答案只在 GetTask 里」的 history 回读。
-- **多轮续接** —— 对同一 agent 再次委派会续接同一远程会话（`contextId`），支持大纲确认类流程。
+- **Agent Registry** —— 浏览 A2A agent 目录，像原生子代理一样委派远程 agent；registry 的
+  `auth_scheme_type` 直接映射鉴权（SSO 直带 / STS 换票 / 匿名）。
 - **SCP Hub 服务** —— 搜索 SCP Hub 目录并添加 MCP 服务；每个启用的 SCP 挂载一个 `dsh-mcp-client`
-  子插件（streamable-http + 自动换取并按 TTL 缓存的 `SCP-HUB-API-KEY`），工具以 `mcp__<server>__*`
-  出现。
+  子插件（streamable-http + 自动换取的 `SCP-HUB-API-KEY`），工具以 `mcp__<server>__*` 出现。
 - **技能安装** —— 目录技能（SKILL.md + toolkit zip）原子解包安装到技能根目录并注册为运行时技能，
   助手的技能目录立即可见。
 
-## 已验证（staging）
-
-| 资源 | 类型 | 状态 |
-| --- | --- | --- |
-| a2a-test-agent | A2A · orbit_jwt | ✅ 流式 + artifacts |
-| MolClaw-agent | A2A · orbit_jwt | ✅ 答案走 artifacts |
-| ep-agent | A2A · token_exchange | ✅ |
-| caicopilot-agent | A2A · http | ✅ |
-| EarthLink | A2A · http | ✅ 连通/鉴权正常；空回复为 staging 上游配额问题的已知事项 |
-| ToolUniverse | SCP · MCP | ✅ 1,894 个工具以 `mcp__tooluniverse__*` 挂载 |
-| BaiChuanShuHui | 技能 | ✅ SKILL.md + 140 文件 toolkit 安装并在技能目录可见 |
+设计说明与验证记录见 [doc/](doc/)。
 
 ## 安装
 
