@@ -1,0 +1,87 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "es2024",
+      "dom"
+    ],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noImplicitAny": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ],
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "@deepseek-ai/cordis": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/vendor/cordis/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/cordis-plugin-loader": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/vendor/loader/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/schemastery": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/vendor/schemastery/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-brand": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/util/brand/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-credentials": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/credentials/credentials/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-llm": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/llm/llm/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-session": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/core/session/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-subagent": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/subagent/subagent/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-tools": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/core/tools/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-typert-protocol": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/typert/protocol/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-api-remotes/client": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/api/remotes/lib/types/client/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-locale/client": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/client/locale/lib/types/client/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-store": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/client/store/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-primitives": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/client/ui-primitives/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-renderer/client": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/client/ui-renderer/lib/types/client/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-settings/client": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/client/ui-settings/lib/types/client/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-slots": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/client/ui-slots/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-test-runtime": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/test-support/client-runtime/lib/types/index.d.ts"
+      ],
+      "@testing-library/react": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.2_@types+react-dom@18.3.7_@type_daff88022cc58198e4af56e91a2a62c5/node_modules/@testing-library/react/types/index.d.ts"
+      ]
+    },
+    "declaration": true,
+    "outDir": "lib/types",
+    "rootDir": "src"
+  },
+  "include": [
+    "src"
+  ]
+}

@@ -1,0 +1,5 @@
+# 端砚 (Inkstone): inserts the plugin row below the profile user layer, so
+# settings edits (the delegation roster) survive recomposition.
+- insert:
+    - id: inkstone
+      name: dsh-plugin-inkstone
