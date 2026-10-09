@@ -89,6 +89,16 @@ export declare class RegistryClientCore {
      * @param agentName - one agent; omit to clear every agent.
      */
     invalidateTickets(agentName?: string): void;
+    /**
+     * The current SSO bearer and uid; shared with sibling services (SCP Hub)
+     * so one OpenXLab session serves every consumer.
+     * @returns the bearer token and user id.
+     * @throws RegistryError (`not-configured`) before login.
+     */
+    identity(): Promise<{
+        bearer: string;
+        userId: string | null;
+    }>;
 }
 /**
  * The `ctx.a2aRegistry` service shell over {@link RegistryClientCore}.
@@ -108,6 +118,14 @@ export declare class A2aRegistryService extends Service {
     login(ak: string, sk: string): Promise<void>;
     /** Remove the stored AK/SK pair and every in-memory token. */
     logout(): Promise<void>;
+    /**
+     * The current SSO bearer and uid, shared with sibling services.
+     * @returns the bearer token and user id.
+     */
+    identity(): Promise<{
+        bearer: string;
+        userId: string | null;
+    }>;
     /**
      * Discover the visible A2A agents.
      * @param signal - cooperative cancellation.

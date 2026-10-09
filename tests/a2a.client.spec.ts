@@ -37,6 +37,12 @@ async function bench(served?: string[]) {
         value: { configured: false, authenticated: false, registryBaseUrl: 'https://a2a.test', expiresAtMs: null, userId: null },
       }),
     },
+    scpHub: {
+      search: () => Promise.resolve({
+        ok: true as const,
+        value: { total: 0, page: 0, pageSize: 20, items: [] },
+      }),
+    },
   })
   // The double's $mount rejects by contract; this page mounts its own
   // namespace, so the bench stands in with a no-op mount.
@@ -67,7 +73,7 @@ class FormDouble {
   }
   async set(field: string, value: unknown): Promise<boolean> {
     this.sets.push({ field, value })
-    this.snapshot = { ...this.snapshot, value: { agents: value } }
+    this.snapshot = { ...this.snapshot, value: { [field]: value, agents: field === 'agents' ? value : this.snapshot.value?.agents } }
     for (const listener of this.#listeners) listener()
     return true
   }
@@ -112,6 +118,9 @@ describe('ui-settings-a2a apply failure path', () => {
           ok: true as const,
           value: { configured: false, authenticated: false, registryBaseUrl: 'https://a2a.test', expiresAtMs: null, userId: null },
         }),
+      },
+      scpHub: {
+        search: () => Promise.resolve({ ok: true as const, value: { total: 0, page: 0, pageSize: 20, items: [] } }),
       },
     })
     remote.$mount = () => Promise.resolve(async () => {})

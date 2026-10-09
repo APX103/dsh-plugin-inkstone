@@ -3,11 +3,11 @@
  * registry directory, and the delegation roster of the `inkstone` plugin
  * entry, as one standalone tab of the settings panel.
  *
- * This plugin mounts its own Remote namespace (the shipped `api-remotes`
- * assembly stays free of experimental inputs), then waits for that namespace
- * through a child injection before registering the page — the namespace
- * cannot appear in this plugin's own `inject` list, because nothing else
- * provides it and the plugin would wait for itself.
+ * This plugin mounts its own Remote namespaces (the shipped `api-remotes`
+ * assembly stays free of experimental inputs), then waits for them through a
+ * child injection before registering the page — the namespaces cannot appear
+ * in this plugin's own `inject` list, because nothing else provides them and
+ * the plugin would wait for itself.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis';
 import { type A2aSettingsLocaleKey } from './locales';
@@ -30,7 +30,8 @@ export declare const INKSTONE_ENTRY = "inkstone";
 /** Required services (cordis fiber inject); the mounted namespace joins later. */
 export declare const inject: string[];
 /**
- * Mount the A2A registry Remote namespace and the settings page on top of it.
+ * Mount the A2A registry and SCP Hub Remote namespaces and the settings page
+ * on top of them.
  * @param ctx - the browser plugin context.
  * @returns disposer joining the page registration and the namespace mount.
  */

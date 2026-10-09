@@ -6,14 +6,17 @@
 **English** | [中文](README.zh.md)
 
 A standalone plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that brings the
-A2A agent registry into your assistant: sign in once with OpenXLab AK/SK, browse the registry directory,
-and delegate to remote A2A agents exactly like native subagents.
+A2A agent registry and the SCP Hub into your assistant: sign in once with OpenXLab AK/SK, then browse three
+tabs — delegate to remote A2A agents, mount SCP Hub MCP services, and install published skills.
 
 ```
-Settings ──端砚 tab──► AK/SK sign-in ──► directory ──► add agents ──┐
-                                                                      ▼
+Settings ──端砚 tab──► AK/SK sign-in ──► Agent Registry ──► add agents ──┐
+                                                                        ▼
   model ──► subagent_a2a tool ──► remote provider ──► registry A2A agents
                 (contextId continuation, STS/SSO per-agent auth)
+
+            ──► SCP Services ──► add SCP ──► mcp-client child ──► mcp__<server>__* tools
+            ──► Skills ──► install ──► ~/.dsh/inkstone/skills ──► runtime skill registry
 ```
 
 ## Highlights
@@ -27,16 +30,23 @@ Settings ──端砚 tab──► AK/SK sign-in ──► directory ──► a
   SSE turn consumption, and history recovery for agents that answer only through `GetTask`.
 - **Continuation** — delegating to the same agent again continues the same remote conversation
   (`contextId`), including outline-confirm workflows.
+- **SCP Hub services** — search the SCP Hub catalog and add MCP servers; each enabled SCP mounts one
+  `dsh-mcp-client` child (streamable-http with an auto-exchanged `SCP-HUB-API-KEY`, TTL-cached in the
+  credentials store) so its tools appear as `mcp__<server>__*`.
+- **Skills** — install catalog skills (SKILL.md + toolkit zip) atomically under the skills root and
+  register them as runtime skills; the agent sees them in its skill catalog immediately.
 
-## Verified agents
+## Verified against staging
 
-| Registry agent | Auth | Status |
+| Resource | Kind | Status |
 | --- | --- | --- |
-| a2a-test-agent | orbit_jwt | ✅ streaming + artifacts |
-| MolClaw-agent | orbit_jwt | ✅ answers via artifacts |
-| ep-agent | token_exchange | ✅ |
-| caicopilot-agent | http | ✅ |
-| EarthLink | http | ✅ connectivity/auth; empty replies are a known staging upstream quota issue |
+| a2a-test-agent | A2A · orbit_jwt | ✅ streaming + artifacts |
+| MolClaw-agent | A2A · orbit_jwt | ✅ answers via artifacts |
+| ep-agent | A2A · token_exchange | ✅ |
+| caicopilot-agent | A2A · http | ✅ |
+| EarthLink | A2A · http | ✅ connectivity/auth; empty replies are a known staging upstream quota issue |
+| ToolUniverse | SCP · MCP | ✅ 1,894 tools mounted as `mcp__tooluniverse__*` |
+| BaiChuanShuHui | Skill | ✅ SKILL.md + 140-file toolkit installed and visible in the skill catalog |
 
 ## Install
 
@@ -52,8 +62,11 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 Restart the app after installing. Open **Settings → 端砚 · A2A Agents**:
 
 1. Enter your OpenXLab AK/SK — stored once via the credentials service, token lifecycle is automatic.
-2. The directory loads automatically; pick the agents you want.
-3. Ask the assistant to delegate: `subagent_a2a` appears with your roster as its `agent` enum.
+2. **Agent Registry**: the directory loads automatically; pick the agents you want.
+3. **SCP Services / Skills**: search the SCP Hub catalog, add servers or install skills; additions
+   hot-mount (MCP tools / skill registry) without a restart.
+4. Ask the assistant to delegate: `subagent_a2a` appears with your roster as its `agent` enum, MCP
+   tools arrive as `mcp__<server>__*`, installed skills join the skill catalog.
 
 ## Configuration
 
@@ -67,6 +80,13 @@ Roster edits from the settings tab land in the profile's user layer; the same fi
 | `agents` | `[]` | Volatile roster: name / endpointUrl / authScheme / description / enabled |
 | `toolName` | `subagent_a2a` | Model-facing tool name (`subagent_*` gets native subagent UI grouping) |
 | `maxDepth` | `1` | Delegation depth cap |
+| `scpHubApiBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api` | SCP Hub platform root (catalog, details) |
+| `scpHubApiKeyBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api/moce/v1` | moce root for the execution API-key exchange |
+| `scpHubEnvironment` | `staging` | Credential-record selector (`staging` / `production`) |
+| `scps` | `[]` | Volatile SCP list: id / name / description / publisher / endpoint / enabled / toolNames |
+| `skills` | `[]` | Volatile skill list: id / skillName / name / description / enabled |
+| `skillsRoot` | `~/.dsh/inkstone/skills` | Install root for catalog skills |
+| `maxToolServers` | `8` | Upper bound of concurrently mounted SCP servers |
 
 ## Package layout
 
@@ -76,13 +96,15 @@ Roster edits from the settings tab land in the profile's user layer; the same fi
 | `src/registry/` | OpenXLab SSO · STS exchange · MCP directory · host service `ctx.a2aRegistry` |
 | `src/remote/` | `a2aRegistry` Remote controller for the settings tab |
 | `src/subagent/` | Delegation mirror: providers + the `subagent_a2a` tool |
-| `src/client/` | Browser settings tab (self-mounts its Remote namespace) |
+| `src/scphub/` | SCP Hub client · API-key exchange · host service `ctx.scpHub` · `scpHub` Remote controller · mcp-client/skills mirror |
+| `src/skills/` | Toolkit zip reading (central-directory walk, `node:zlib` inflate) and atomic install |
+| `src/client/` | Browser settings tab (self-mounts its Remote namespaces) |
 
 ## Development
 
 ```sh
 pnpm install
-pnpm test     # 155 tests
+pnpm test     # 179 tests
 pnpm build    # tsc (two-phase) + tsdown → lib/index.js + lib/client.js
 ```
 

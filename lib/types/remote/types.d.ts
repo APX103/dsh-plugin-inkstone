@@ -51,3 +51,12 @@ export interface A2aAgentView {
     /** Registry-side probe status; empty when the registry omitted it. */
     readonly probeStatus: string;
 }
+declare module '@deepseek-ai/dsh-typert-protocol' {
+    interface RemoteErrorDetailsMap {
+        /** The SCP Hub catalog or credential exchange failed. */
+        'scphub/unavailable': {
+            /** Human-readable failure reason. */
+            readonly reason: string;
+        };
+    }
+}
