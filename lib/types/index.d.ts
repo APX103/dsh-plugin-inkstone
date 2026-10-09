@@ -50,6 +50,8 @@ export interface Config extends DelegationConfig {
     skillsRoot: string;
     /** Upper bound of concurrently mounted SCP servers. */
     maxToolServers: number;
+    /** Upper bound of selected tools registered across every SCP server. */
+    maxSelectedTools: number;
 }
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
@@ -77,6 +79,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         publisher?: string | null;
         endpoint?: string | null;
         enabled?: boolean | null;
+        selectedTools?: string[] | null;
         toolNames?: string[] | null;
     } & import("@deepseek-ai/cosmokit").Dict)[]>, NoInfer<Schemastery.ObjectT<NoInfer<{
         id: z<string, string, "defined">;
@@ -85,6 +88,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         publisher: z<string, string, "defined">;
         endpoint: z<string, string, "defined">;
         enabled: z<boolean, boolean, "defined">;
+        selectedTools: z<string[], string[], "defined">;
         toolNames: z<string[], string[], "defined">;
     }>>[]>, "volatile-defined">;
     skills: z<NoInfer<({
@@ -104,6 +108,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     maxDepth: z<number, number, "defined">;
     skillsRoot: z<string, string, "defined">;
     maxToolServers: z<number, number, "defined">;
+    maxSelectedTools: z<number, number, "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
     ssoBaseUrl: z<string, string, "defined">;
@@ -130,6 +135,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         publisher?: string | null;
         endpoint?: string | null;
         enabled?: boolean | null;
+        selectedTools?: string[] | null;
         toolNames?: string[] | null;
     } & import("@deepseek-ai/cosmokit").Dict)[]>, NoInfer<Schemastery.ObjectT<NoInfer<{
         id: z<string, string, "defined">;
@@ -138,6 +144,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         publisher: z<string, string, "defined">;
         endpoint: z<string, string, "defined">;
         enabled: z<boolean, boolean, "defined">;
+        selectedTools: z<string[], string[], "defined">;
         toolNames: z<string[], string[], "defined">;
     }>>[]>, "volatile-defined">;
     skills: z<NoInfer<({
@@ -157,6 +164,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     maxDepth: z<number, number, "defined">;
     skillsRoot: z<string, string, "defined">;
     maxToolServers: z<number, number, "defined">;
+    maxSelectedTools: z<number, number, "defined">;
 }>>, "plain">;
 /**
  * Mount the registry service, the Remote controller, and the delegation mirror.

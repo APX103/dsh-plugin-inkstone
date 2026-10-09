@@ -167,8 +167,8 @@ describe('name normalization', () => {
   it('kebab-cases catalog names for skills and servers', () => {
     expect(skillNameOf('Paper Writing!', '5')).toBe('paper-writing')
     expect(skillNameOf('中文技能', '5')).toBe('scp-skill-5')
-    expect(serverNameOf({ id: '11', name: 'Ocean Data!', endpoint: '', description: '', publisher: '', enabled: true, toolNames: [] })).toBe('ocean-data')
-    expect(serverNameOf({ id: '11', name: '中文名', endpoint: '', description: '', publisher: '', enabled: true, toolNames: [] })).toBe('scp-11')
+    expect(serverNameOf({ id: '11', name: 'Ocean Data!', endpoint: '', description: '', publisher: '', enabled: true, selectedTools: [], toolNames: [] })).toBe('ocean-data')
+    expect(serverNameOf({ id: '11', name: '中文名', endpoint: '', description: '', publisher: '', enabled: true, selectedTools: [], toolNames: [] })).toBe('scp-11')
     expect(skillDirectoryName('5')).toBe('scp-5')
   })
 })
@@ -191,43 +191,51 @@ describe('rebuildScpHubMirror', () => {
       scpHub, scps: [], skills: [
         { id: '5', skillName: 'paper-writing', name: 'Paper', description: 'd', enabled: true },
         { id: '9', skillName: 'missing-skill', name: 'Missing', description: 'd', enabled: true },
-      ], skillsRoot: root, maxToolServers: 4,
+      ], skillsRoot: root, maxToolServers: 4, maxSelectedTools: 8,
     })
     await new Promise(resolve => setTimeout(resolve, 20))
     expect(registered).toEqual(['paper-writing'])
     dispose()
   })
 
-  it('mounts one mcp-client child per enabled SCP, forwarding the module inject', async () => {
-    const mounts: Array<{ plugin:Record<string, unknown>, config: Record<string, unknown> }> = []
+  it('registers only the selected tools of enabled servers, paging in the inventory itself', async () => {
+    const registered: string[] = []
+    const missing: string[] = []
     const warnings: string[] = []
+    const requests: string[] = []
     const ctx = new Context()
     ctx.logger.warn = ((message: string) => { warnings.push(String(message)) }) as never
     ctx.provide('skills', { register: () => () => {} } as never)
-    const pluginSpy = vi.fn(async (plugin: Record<string, unknown>, config: Record<string, unknown>) => {
-      mounts.push({ plugin, config })
-      return { dispose: async () => {} } as never
+    ctx.provide('tools', {
+      register(definition: { name: string }) {
+        registered.push(definition.name)
+        return () => {}
+      },
+    } as never)
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      requests.push(url)
+      return jsonResponse({ jsonrpc: '2.0', id: 1, result: { tools: [
+        { name: 'get_usage_tips', description: 'tips', inputSchema: { type: 'object' } },
+        { name: 'search_tools', description: 'search', inputSchema: { type: 'object' } },
+        { name: 'unused_tool', description: 'not selected', inputSchema: { type: 'object' } },
+      ] } })
     })
-    Object.defineProperty(ctx, 'plugin', { value: pluginSpy })
     const scpHub = { apiKey: async () => 'exchanged-key' } as unknown as ScpHubService
     const dispose = rebuildScpHubMirror(ctx, {
       scpHub,
       scps: [
-        { id: '112', name: 'ToolUniverse', description: '', publisher: '', endpoint: 'https://scp.example/mcp', enabled: true, toolNames: [] },
-        { id: '113', name: 'Disabled One', description: '', publisher: '', endpoint: 'https://scp.example/2', enabled: false, toolNames: [] },
+        { id: '112', name: 'ToolUniverse', description: '', publisher: '', endpoint: 'https://scp.example/mcp', enabled: true, selectedTools: ['get_usage_tips', 'search_tools', 'gone_tool'], toolNames: [] },
+        { id: '113', name: 'Parked', description: '', publisher: '', endpoint: 'https://scp.example/2', enabled: true, selectedTools: [], toolNames: [] },
+        { id: '114', name: 'Disabled', description: '', publisher: '', endpoint: 'https://scp.example/3', enabled: false, selectedTools: ['search_tools'], toolNames: [] },
       ],
-      skills: [], skillsRoot: root, maxToolServers: 4,
+      skills: [], skillsRoot: root, maxToolServers: 4, maxSelectedTools: 8, fetchImpl: fetchImpl as unknown as typeof fetch,
     })
-    await vi.waitFor(() => { expect(mounts.length).toBe(1) })
-    expect(warnings).toEqual([])
-    expect(mounts[0]!.plugin.name).toBe('mcp-client')
-    expect(mounts[0]!.plugin.inject).toEqual(['tools'])
-    expect(mounts[0]!.config).toMatchObject({
-      transport: 'streamable-http',
-      serverName: 'tooluniverse',
-      url: 'https://scp.example/mcp',
-      headers: { 'SCP-HUB-API-KEY': 'exchanged-key' },
-    })
+    await vi.waitFor(() => { expect(registered.length).toBe(2) })
+    void missing
+    expect(registered).toEqual(['mcp__tooluniverse__get_usage_tips', 'mcp__tooluniverse__search_tools'])
+    expect(requests).toEqual(['https://scp.example/mcp'])
+    expect(warnings.filter(message => message.includes('gone_tool')).length).toBe(1)
     dispose()
   })
 
@@ -237,9 +245,18 @@ describe('rebuildScpHubMirror', () => {
     ctx.logger.warn = warn as never
     ctx.provide('skills', { register: () => () => {} } as never)
     const scpHub = { apiKey: async () => { throw new Error('quota') } } as unknown as ScpHubService
-    const dispose = rebuildScpHubMirror(ctx, { scpHub, scps: [], skills: [], skillsRoot: root, maxToolServers: 4 })
+    const dispose = rebuildScpHubMirror(ctx, {
+      scpHub,
+      scps: [{ id: '112', name: 'ToolUniverse', description: '', publisher: '', endpoint: 'https://scp.example/mcp', enabled: true, selectedTools: ['t'], toolNames: [] }],
+      skills: [], skillsRoot: root, maxToolServers: 4, maxSelectedTools: 8,
+    })
     await new Promise(resolve => setTimeout(resolve, 20))
     expect(warn).toHaveBeenCalledTimes(1)
     dispose()
   })
 })
+
+/** Minimal JSON Response stub for fetch mocks. */
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+}

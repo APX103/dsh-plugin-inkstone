@@ -15,7 +15,7 @@ SCP Hub 的 MCP 服务、安装平台发布的技能。
   模型 ──► subagent_a2a 工具 ──► 远程 provider ──► registry A2A agents
                 （contextId 续接，按 agent 自动 SSO/STS 鉴权）
 
-       ──► SCP 服务 ──► 添加 SCP ──► mcp-client 子插件 ──► mcp__<server>__* 工具
+       ──► SCP 服务 ──► 添加 SCP ──► 勾选工具 ──► mcp__<server>__*（仅勾选项）
        ──► 技能 ──► 安装 ──► ~/.dsh/inkstone/skills ──► 运行时技能注册
 ```
 
@@ -25,8 +25,8 @@ SCP Hub 的 MCP 服务、安装平台发布的技能。
   用户层持久保存，改动即时热重建 provider，无需重启。
 - **Agent Registry** —— 浏览 A2A agent 目录，像原生子代理一样委派远程 agent；registry 的
   `auth_scheme_type` 直接映射鉴权（SSO 直带 / STS 换票 / 匿名）。
-- **SCP Hub 服务** —— 搜索 SCP Hub 目录并添加 MCP 服务；每个启用的 SCP 挂载一个 `dsh-mcp-client`
-  子插件（streamable-http + 自动换取的 `SCP-HUB-API-KEY`），工具以 `mcp__<server>__*` 出现。
+- **SCP Hub 服务** —— 搜索 SCP Hub 目录并添加 MCP 服务；在设置页按工具勾选，只有选中的工具以
+  `mcp__<server>__*` 注册，执行面密钥自动处理。
 - **技能安装** —— 目录技能（SKILL.md + toolkit zip）原子解包安装到技能根目录并注册为运行时技能，
   助手的技能目录立即可见。
 
@@ -46,8 +46,8 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 
 1. 填入 OpenXLab AK/SK —— 经凭据服务存储一次，令牌生命周期自动维护。
 2. **Agent Registry**：目录自动加载，挑选想要的 agent。
-3. **SCP 服务 / 技能**：搜索 SCP Hub 目录，添加服务或安装技能；改动即时热挂载（MCP 工具 /
-   技能注册），无需重启。
+3. **SCP 服务 / 技能**：搜索 SCP Hub 目录，添加服务或安装技能。新添加的 SCP 在打开「选择工具」
+   勾选之前不会挂载任何工具；勾选即时生效，无需重启。
 4. 让助手委派即可：`subagent_a2a` 出现在工具列表，`agent` 枚举就是你的名单；MCP 工具以
    `mcp__<server>__*` 出现，已安装技能进入技能目录。
 
@@ -65,10 +65,11 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 | `scpHubApiBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api` | SCP Hub 平台根（目录、详情） |
 | `scpHubApiKeyBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api/moce/v1` | 执行面 API key 换取的 moce 根 |
 | `scpHubEnvironment` | `staging` | 凭据记录选择器（`staging` / `production`） |
-| `scps` | `[]` | volatile SCP 清单：id / name / description / publisher / endpoint / enabled / toolNames |
+| `scps` | `[]` | volatile SCP 清单：id / name / description / publisher / endpoint / enabled / selectedTools / toolNames |
 | `skills` | `[]` | volatile 技能清单：id / skillName / name / description / enabled |
 | `skillsRoot` | `~/.dsh/inkstone/skills` | 目录技能的安装根目录 |
 | `maxToolServers` | `8` | 并发挂载的 SCP 服务上限 |
+| `maxSelectedTools` | `128` | 所有服务合计可注册的选中工具上限 |
 
 ## 包结构
 

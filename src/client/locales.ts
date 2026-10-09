@@ -53,6 +53,15 @@ export type A2aSettingsLocaleKey =
   | 'localEnable'
   | 'localDisable'
   | 'localRemove'
+  | 'toolsSelectedTag'
+  | 'noToolsSelectedTag'
+  | 'toolPickerOpen'
+  | 'toolPickerClose'
+  | 'scpParkedHint'
+  | 'toolPickerCount'
+  | 'toolPickerPrev'
+  | 'toolPickerNext'
+  | 'toolPickerPage'
   | 'loading'
   | 'errorPrefix'
 
@@ -105,6 +114,15 @@ export const en: Record<A2aSettingsLocaleKey, string> = {
   localEnable: 'Enable',
   localDisable: 'Disable',
   localRemove: 'Remove',
+  toolsSelectedTag: 'selected',
+  noToolsSelectedTag: 'no tools',
+  toolPickerOpen: 'Tools',
+  toolPickerClose: 'Close',
+  scpParkedHint: 'No tools selected — this server stays unmounted. Pick tools to expose them to the model.',
+  toolPickerCount: 'Selected {selected} of {total} tools — only selected tools mount.',
+  toolPickerPrev: 'Prev',
+  toolPickerNext: 'Next',
+  toolPickerPage: 'Page {page} of {pages}',
   loading: 'Loading…',
   errorPrefix: 'Failed',
 }
@@ -158,6 +176,15 @@ export const zh: Record<A2aSettingsLocaleKey, string> = {
   localEnable: '启用',
   localDisable: '停用',
   localRemove: '移除',
+  toolsSelectedTag: '个已选',
+  noToolsSelectedTag: '未选工具',
+  toolPickerOpen: '选择工具',
+  toolPickerClose: '收起',
+  scpParkedHint: '未选择工具——该服务暂不挂载，勾选工具后才会进入模型上下文。',
+  toolPickerCount: '已选 {selected}/{total} 个工具——只有选中的会挂载。',
+  toolPickerPrev: '上一页',
+  toolPickerNext: '下一页',
+  toolPickerPage: '第 {page}/{pages} 页',
   loading: '加载中…',
   errorPrefix: '操作失败',
 }

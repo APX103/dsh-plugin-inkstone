@@ -43,9 +43,26 @@
   返回误导性的 `-32602 Invalid params`；可无会话（不下发 `MCP-Session-Id`）。
 - toolkit zip 的 local header 一律带数据描述位（flag bit 3），尺寸只可信中央目录。
 
-## 3. 已知事项
+## 3. 选择性工具挂载（feat/scp-hub 后续）
+
+全量挂载把整台服务器的工具 schema 灌进模型上下文（1,894 工具 ≈ 450K token），改为按工具勾选：
+添加 SCP 默认不挂载，设置页分页清单勾选后才注册。实测（同上环境）：
+
+| 验证项 | 结果 | 证据 |
+| --- | --- | --- |
+| 新添加 SCP 默认零挂载 | ✅ | 行显示 "no tools" + 停靠提示；模型工具清单 0 个 mcp__ |
+| 工具选择器 | ✅ | 打开后拉取 1,894 个工具，50/页分页渲染，勾选即时写配置 |
+| 勾选 3 个工具（ToolUniverse_get_usage_tips / Tool_RAG / Tool_Finder） | ✅ | 行 tag "3 selected"；新会话模型精确列出且仅列出这 3 个 `mcp__tooluniverse__*` |
+| 上下文占用 | ✅ | 会话用量 22.6K tok（全量挂载时同提示词为 463K tok） |
+| 无状态执行转发 | ✅ | 模型真实调用 ToolUniverse_get_usage_tips，返回原文（"tu.load_tools()" 等提示） |
+| 单元测试 / 类型 | ✅ | 188 tests 全绿（无状态 JSON-RPC、选择性注册、名字规范化、isError 拒绝、镜像截断）；tsc 零错误 |
+
+实现备注：dsh-mcp-client 无工具白名单能力，SCP Hub 执行面又实测无会话（每请求独立），故插件自管
+轻量桥（发现一次 + 按调用 POST），细节见设计文档第 4 节。
+
+## 4. 已知事项
 
 - EarthLink 空回复为上游 staging 配额问题（见上表），客户端无待办。
-- 大型 SCP 的全部工具 schema 进入模型上下文（1,894 工具 ≈ 450K token）；`maxToolServers` 限制并发
-  挂载数，工具数量的精细治理依赖 DSH 后续的模型侧工具呈现策略。
+- 需要会话（拒绝无状态请求）的 SCP 服务器暂不支持（见设计文档第 4 节边界说明）；上游工具清单
+  变化不自动同步，靠改动勾选触发重拉。
 - 外部安装依赖 DSH 发布 `>=0.2.1-alpha.1` 之前需从源码启动宿主（README 已注明）。

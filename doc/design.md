@@ -87,30 +87,43 @@ SCP Hub 有两个不重合的 API 根，配置里是两个独立字段：
 | 镜像 | 挂载物 | 依赖服务 |
 | --- | --- | --- |
 | inkstone-delegation | `subagents.registerProvider` + `subagent_a2a` 工具 | a2aRegistry, subagents, tools |
-| inkstone-scp-hub（SCP 半边） | 每个启用的 SCP 一个 `dsh-mcp-client` 子插件 | scpHub, skills |
+| inkstone-scp-hub（SCP 半边） | 每个启用且已勾选工具的 SCP：仅勾选工具的 `ctx.tools.register` | scpHub, skills, tools |
 | inkstone-scp-hub（技能半边） | 每个启用的技能一次 `ctx.skills.register` | （同上） |
 
 重建语义：先全部拆掉（dispose 列表逆序），再按当前清单重建；失败单项告警跳过，不阻塞其余项。
 
-### mcp-client 子插件的挂载要点
+### 选择性工具挂载
 
-```ts
-const { apply, Config, inject, name } = await import('@deepseek-ai/dsh-mcp-client')
-await ctx.plugin({ name, Config, apply, inject }, { transport: 'streamable-http', … })
+添加 SCP 只是"纳入管理"——默认不挂载任何工具。用户在设置页打开该服务的工具清单（分页列表，
+数据来自目录详情的 tools 投影），勾选后 `selectedTools` 落配置，镜像只注册勾选项：
+
+```
+勾选 → selectedTools 写配置 → volatile 重建 → registerScpTools:
+  1. POST tools/list（一次性拉全量 schema，按名过滤勾选项）
+  2. 逐个 ctx.tools.register（名字、schema、execute 直接自管）
+  3. execute → POST tools/call（每次调用独立请求）
 ```
 
-- **`inject` 必须随模块一起转发**。`ctx.plugin` 的插件对象若缺了模块自带的 `inject: ['tools']`，
-  子 fiber 无法读取 tools 服务，连接在重连循环里静默失败——这是 E2E 期间定位最久的一个坑。
-- `failOnStartupError: false`：staging 端点抖动时不让挂载失败阻断插件激活，交给 mcp-client 自带的
-  指数退避重连。
-- 服务端点来自目录详情（`endpoint` 字段），静态头带 `SCP-HUB-API-KEY`；key 轮换由镜像重建覆盖
-  （volatile 重建天然重走一遍换取）。
+之所以自管而不用 dsh-mcp-client：它是"整台服务器全量注册"的模型，没有工具白名单；而 SCP Hub
+执行面是无会话的（每个请求独立、仅需 `MCP-Protocol-Version` 头），常驻连接与重连管理都是多余。
+代价与收益：
+
+- 大型 SCP（上千工具）不再把全部 schema 灌进模型上下文——勾几个就是几个（`maxSelectedTools`
+  默认 128 封顶，UI 与镜像双侧强制）。
+- 工具调用无连接池：每次 `tools/call` 一次 POST，30s 截止时间并与调用方取消信号合并。
+- 服务器指令（initialize instructions）不注入系统提示；上游工具清单变化靠"重新打开选择器/
+  改动勾选"触发重拉，不做 listChanged 订阅。
+- 结果投影（文本 join、structuredContent、图片经附件准入落盘）与 harness mcp-client 同构，
+  模型侧行为一致。
+
+两个边界：勾选项在服务器端已下架时，注册告警并跳过（不阻塞其余工具）；需要会话（拒绝无状态
+请求）的 SCP 服务器不受支持，注册阶段的 tools/list 会失败并告警。
 
 ### 工具命名
 
-`serverNameOf` 把目录名规范成 `[A-Za-z0-9_-]{1,32}`（非法即回退 `scp-<id>`），工具名最终形如
-`mcp__<serverName>__<rawName>`。注意大型 SCP（上千工具）的 schema 全量进入模型上下文，
-`maxToolServers`（默认 8）就是为此设的并发上限。
+`serverNameOf` 把目录名规范成 `[A-Za-z0-9_-]{1,32}`（非法即回退 `scp-<id>`），公开名形如
+`mcp__<serverName>__<rawName>`；超长或含非法字符时规范化并追加 12 位 SHA-256 短哈希，保证不同
+工具永不撞名。
 
 ## 5. 技能安装的安全边界
 
