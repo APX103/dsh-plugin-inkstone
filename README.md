@@ -15,7 +15,7 @@ Settings ──端砚 tab──► AK/SK sign-in ──► Agent Registry ──
   model ──► subagent_a2a tool ──► remote provider ──► registry A2A agents
                 (contextId continuation, STS/SSO per-agent auth)
 
-            ──► SCP Services ──► add SCP ──► mcp-client child ──► mcp__<server>__* tools
+            ──► SCP Services ──► add SCP ──► pick tools ──► mcp__<server>__* (selected only)
             ──► Skills ──► install ──► ~/.dsh/inkstone/skills ──► runtime skill registry
 ```
 
@@ -25,9 +25,9 @@ Settings ──端砚 tab──► AK/SK sign-in ──► Agent Registry ──
   edits persist in the profile and hot-rebuild providers without a restart.
 - **Agent Registry** — browse the A2A agent directory, delegate to remote agents like native subagents;
   registry `auth_scheme_type` maps straight onto request headers (SSO bearer / STS ticket / anonymous).
-- **SCP Hub services** — search the SCP Hub catalog and add MCP servers; each enabled SCP mounts one
-  `dsh-mcp-client` child (streamable-http with an auto-exchanged `SCP-HUB-API-KEY`) so its tools appear
-  as `mcp__<server>__*`.
+- **SCP Hub services** — search the SCP Hub catalog and add MCP servers; pick the individual tools you
+  want in the settings page and only those register, as `mcp__<server>__*`, with the execution key
+  handled automatically.
 - **Skills** — install catalog skills (SKILL.md + toolkit zip) atomically under the skills root and
   register them as runtime skills; the agent sees them in its skill catalog immediately.
 
@@ -48,8 +48,9 @@ Restart the app after installing. Open **Settings → 端砚 · A2A Agents**:
 
 1. Enter your OpenXLab AK/SK — stored once via the credentials service, token lifecycle is automatic.
 2. **Agent Registry**: the directory loads automatically; pick the agents you want.
-3. **SCP Services / Skills**: search the SCP Hub catalog, add servers or install skills; additions
-   hot-mount (MCP tools / skill registry) without a restart.
+3. **SCP Services / Skills**: search the SCP Hub catalog, add servers or install skills. A newly
+   added SCP mounts nothing until you open **Tools** and tick the ones you want; selections apply
+   without a restart.
 4. Ask the assistant to delegate: `subagent_a2a` appears with your roster as its `agent` enum, MCP
    tools arrive as `mcp__<server>__*`, installed skills join the skill catalog.
 
@@ -68,10 +69,11 @@ Roster edits from the settings tab land in the profile's user layer; the same fi
 | `scpHubApiBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api` | SCP Hub platform root (catalog, details) |
 | `scpHubApiKeyBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api/moce/v1` | moce root for the execution API-key exchange |
 | `scpHubEnvironment` | `staging` | Credential-record selector (`staging` / `production`) |
-| `scps` | `[]` | Volatile SCP list: id / name / description / publisher / endpoint / enabled / toolNames |
+| `scps` | `[]` | Volatile SCP list: id / name / description / publisher / endpoint / enabled / selectedTools / toolNames |
 | `skills` | `[]` | Volatile skill list: id / skillName / name / description / enabled |
 | `skillsRoot` | `~/.dsh/inkstone/skills` | Install root for catalog skills |
 | `maxToolServers` | `8` | Upper bound of concurrently mounted SCP servers |
+| `maxSelectedTools` | `128` | Upper bound of selected tools registered across every server |
 
 ## Package layout
 

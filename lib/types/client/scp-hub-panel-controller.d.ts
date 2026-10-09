@@ -39,6 +39,7 @@ export interface LocalScpRow {
     readonly publisher: string;
     readonly endpoint: string;
     readonly enabled: boolean;
+    readonly selectedTools: readonly string[];
     readonly toolNames: readonly string[];
 }
 /** One local skill entry as the plugin's configuration stores it. */
@@ -48,6 +49,22 @@ export interface LocalSkillRow {
     readonly name: string;
     readonly description: string;
     readonly enabled: boolean;
+}
+/** One candidate tool row inside the picker. */
+export interface ScpToolRow {
+    readonly name: string;
+    readonly description: string;
+}
+/** The per-server tool picker: cached inventory plus paging state. */
+export interface ToolPickerState {
+    /** The local SCP entry the picker is open for. */
+    readonly scpId: string;
+    /** Whether the inventory request is in flight. */
+    readonly loading: boolean;
+    /** Zero-based page of the paged inventory list. */
+    readonly page: number;
+    /** The full tool inventory, cached after the first load. */
+    readonly tools: readonly ScpToolRow[];
 }
 /** Everything the SCP Hub panels render. */
 export interface ScpHubPanelState {
@@ -68,6 +85,8 @@ export interface ScpHubPanelState {
     readonly scps: readonly LocalScpRow[];
     /** The locally installed skills. */
     readonly skills: readonly LocalSkillRow[];
+    /** The open tool picker; null when closed. */
+    readonly picker: ToolPickerState | null;
 }
 /** Actions and observable state bound by the panel renderer. */
 export interface ScpHubPanelFace {
@@ -78,14 +97,19 @@ export interface ScpHubPanelFace {
     addScp(id: string): Promise<void>;
     removeScp(id: string): Promise<void>;
     setScpEnabled(id: string, enabled: boolean): Promise<void>;
+    openToolPicker(id: string): Promise<void>;
+    closeToolPicker(): void;
+    setToolPickerPage(page: number): void;
+    toggleTool(scpId: string, name: string, checked: boolean): Promise<void>;
     installSkill(id: string): Promise<void>;
     removeSkill(id: string): Promise<void>;
     setSkillEnabled(id: string, enabled: boolean): Promise<void>;
 }
-/** Shape of the plugin's `scps`/`skills` configuration fields on the wire. */
+/** Shape of the plugin's `scps`/`skills`/bound fields on the wire. */
 type LocalListsConfig = {
     scps?: unknown;
     skills?: unknown;
+    maxSelectedTools?: unknown;
 };
 /** One Remote failure as this panel reads it. */
 export interface PanelRemoteFailure {

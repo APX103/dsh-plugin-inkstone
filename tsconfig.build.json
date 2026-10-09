@@ -73,8 +73,11 @@
       "@deepseek-ai/dsh-client-test-runtime": [
         "/Volumes/ssd/main_link/work/deepseek-harness/packages/test-support/client-runtime/lib/types/index.d.ts"
       ],
-      "@deepseek-ai/dsh-mcp-client": [
-        "/Volumes/ssd/main_link/work/deepseek-harness/packages/mcp/mcp-client/lib/types/index.d.ts"
+      "@deepseek-ai/dsh-attachment": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/attachment/attachment/lib/types/index.d.ts"
+      ],
+      "@deepseek-ai/dsh-util-values": [
+        "/Volumes/ssd/main_link/work/deepseek-harness/packages/util/values/lib/types/index.d.ts"
       ],
       "@deepseek-ai/dsh-skill": [
         "/Volumes/ssd/main_link/work/deepseek-harness/packages/skill/skill/lib/types/index.d.ts"

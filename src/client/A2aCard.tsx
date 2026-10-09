@@ -5,7 +5,7 @@ import { useId, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { A2aCardFace, A2aCardState, DirectoryRow } from './a2a-card-controller'
-import type { ScpHubPanelFace, ScpHubPanelState } from './scp-hub-panel-controller'
+import type { LocalScpRow, ScpHubPanelFace, ScpHubPanelState } from './scp-hub-panel-controller'
 import css from './A2aCard.module.css'
 
 /** The merged inject face: registry panel plus SCP Hub panel. */
@@ -232,24 +232,81 @@ function ScpsPanel({ t, headingId, panel, face, busy }: { t: CardLocale, heading
         ? <p className={css.hint}>{t('localScpsEmpty')}</p>
         : <ul className={css.rows}>
           {panel.scps.map(row => (
-      <li key={row.id} className={css.row}>
-        <div className={css.rowIdentity}>
-          <span className={css.rowName}>{row.name}</span>
-          <Tag tone="neutral">{row.toolNames.length > 0 ? `${row.toolNames.length} tools` : 'mcp'}</Tag>
-        </div>
-        <p className={css.rowDescription} title={row.description}>{row.description}</p>
-            <div className={css.rowActions}>
-              <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.setScpEnabled(row.id, !row.enabled) }}>
-                {row.enabled ? t('localDisable') : t('localEnable')}
-              </Button>
-              <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.removeScp(row.id) }}>
-                {t('localRemove')}
-              </Button>
-            </div>
-          </li>
+            <li key={row.id} className={css.row}>
+              <div className={css.rowIdentity}>
+                <span className={css.rowName}>{row.name}</span>
+                <Tag tone="neutral">{row.selectedTools.length > 0 ? `${row.selectedTools.length} ${t('toolsSelectedTag')}` : t('noToolsSelectedTag')}</Tag>
+              </div>
+              <p className={css.rowDescription} title={row.description}>{row.description}</p>
+              <div className={css.rowActions}>
+                <Button size="sm" variant="outline" disabled={panel.mutating !== null} onClick={() => { void face.openToolPicker(row.id) }}>
+                  {panel.picker?.scpId === row.id ? t('toolPickerClose') : t('toolPickerOpen')}
+                </Button>
+                <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.setScpEnabled(row.id, !row.enabled) }}>
+                  {row.enabled ? t('localDisable') : t('localEnable')}
+                </Button>
+                <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.removeScp(row.id) }}>
+                  {t('localRemove')}
+                </Button>
+              </div>
+              {row.selectedTools.length === 0
+                ? <p className={css.hint}>{t('scpParkedHint')}</p>
+                : null}
+              {panel.picker?.scpId === row.id
+                ? <ToolPicker t={t} panel={panel} row={row} face={face} />
+                : null}
+            </li>
           ))}
         </ul>}
     </section>
+  )
+}
+
+/** Tools per picker page. */
+const PICKER_PAGE_SIZE = 50
+
+/**
+ * The per-server tool picker: a paged, tickable inventory; only ticked tools
+ * mount. No search — a plain paged list keeps selection deliberate.
+ */
+function ToolPicker({ t, panel, row, face }: { t: CardLocale, panel: ScpHubPanelState, row: LocalScpRow, face: Omit<ScpHubPanelFace, 'hooks'> }): ReactNode {
+  const picker = panel.picker
+  if (picker === null || picker.scpId !== row.id) return null
+  if (picker.loading) {
+    return <p className={css.hint}>{t('loading')}</p>
+  }
+  const last = Math.max(0, Math.ceil(picker.tools.length / PICKER_PAGE_SIZE) - 1)
+  const page = picker.tools.slice(picker.page * PICKER_PAGE_SIZE, (picker.page + 1) * PICKER_PAGE_SIZE)
+  const selected = new Set(row.selectedTools)
+  return (
+    <div className={css.picker}>
+      <p className={css.hint}>{t('toolPickerCount', { selected: String(row.selectedTools.length), total: String(picker.tools.length) })}</p>
+      <ul className={css.rows}>
+        {page.map(tool => (
+          <li key={tool.name} className={css.row}>
+            <label className={css.pick}>
+              <input
+                type="checkbox"
+                checked={selected.has(tool.name)}
+                disabled={panel.mutating !== null}
+                onChange={event => { void face.toggleTool(row.id, tool.name, event.target.checked) }}
+              />
+              <span className={css.rowName}>{tool.name}</span>
+            </label>
+            <p className={css.rowDescription} title={tool.description}>{tool.description}</p>
+          </li>
+        ))}
+      </ul>
+      <div className={css.rowActions}>
+        <Button size="sm" variant="ghost" disabled={picker.page === 0} onClick={() => { face.setToolPickerPage(picker.page - 1) }}>
+          {t('toolPickerPrev')}
+        </Button>
+        <span className={css.hint}>{t('toolPickerPage', { page: String(picker.page + 1), pages: String(last + 1) })}</span>
+        <Button size="sm" variant="ghost" disabled={picker.page >= last} onClick={() => { face.setToolPickerPage(picker.page + 1) }}>
+          {t('toolPickerNext')}
+        </Button>
+      </div>
+    </div>
   )
 }
 

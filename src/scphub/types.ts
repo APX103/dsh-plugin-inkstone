@@ -19,6 +19,11 @@ export interface LocalScp {
   readonly endpoint: string
   /** Whether the server's tools mount into the tool registry. */
   readonly enabled: boolean
+  /**
+   * Raw tool names selected for mounting; only these register on
+   * `ctx.tools`. An empty list keeps the server parked with no tools.
+   */
+  readonly selectedTools: readonly string[]
   /** Tool name inventory at add time; diagnostic only. */
   readonly toolNames: readonly string[]
 }

@@ -1,17 +1,19 @@
 /**
- * The SCP Hub runtime mirror: one `dsh-mcp-client` child plugin per enabled
- * SCP server (authorized with the SCP Hub API key) and one runtime skill per
- * enabled installed skill. Rebuilt whenever the volatile `scps`/`skills`
- * config changes, mirroring the delegation roster's lifecycle.
+ * The SCP Hub runtime mirror: the user-selected tools of every enabled SCP
+ * server registered on `ctx.tools` through the selective bridge (authorized
+ * with the SCP Hub API key), plus one runtime skill per enabled installed
+ * skill. Rebuilt whenever the volatile `scps`/`skills` config changes,
+ * mirroring the delegation roster's lifecycle.
  *
  * @module dsh-plugin-inkstone/scphub/mirror
  */
 
-import type { Context, Fiber } from '@deepseek-ai/cordis'
+import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the skill registry's Context merge (ctx.skills).
 import type {} from '@deepseek-ai/dsh-skill'
 import type { ScpHubService } from './service'
 import type { LocalScp, LocalSkill } from './types'
+import { registerScpTools } from './tools-bridge'
 import { installSkill, readInstalledSkill, readSkillArchive, removeSkill } from '../skills/install'
 
 /** Options for {@link rebuildScpHubMirror}. */
@@ -26,9 +28,13 @@ export interface ScpHubMirrorOptions {
   readonly skillsRoot: string
   /** Upper bound of concurrently mounted SCP servers. */
   readonly maxToolServers: number
+  /** Upper bound of selected tools registered across every server. */
+  readonly maxSelectedTools: number
+  /** Injectable fetch for tests; defaults to global fetch. */
+  readonly fetchImpl?: typeof fetch
 }
 
-/** Server-name characters `dsh-mcp-client` accepts. */
+/** Server-name characters the public tool-name contract accepts. */
 const SERVER_NAME = /^[A-Za-z0-9_-]{1,32}$/
 
 /** Skill names `ctx.skills` accepts. */
@@ -47,7 +53,7 @@ export function skillNameOf(name: string, id: string): string {
 }
 
 /**
- * Normalize one local entry into an `mcp-client` server name.
+ * Normalize one local entry into a tool-namespace server name.
  * @param scp - the local entry.
  * @returns the server name behind `mcp__<name>__*` tool prefixes.
  */
@@ -84,27 +90,28 @@ export function rebuildScpHubMirror(ctx: Context, options: ScpHubMirrorOptions):
   }
 
   void (async () => {
-    let apiKey: string
-    try {
-      apiKey = await options.scpHub.apiKey()
-    } catch (error) {
-      ctx.logger.warn(`inkstone: SCP Hub API key unavailable: ${error instanceof Error ? error.message : String(error)}`)
-      return
-    }
-    for (const scp of options.scps.filter(entry => entry.enabled).slice(0, options.maxToolServers)) {
+    let budget = options.maxSelectedTools
+    const mounted = options.scps
+      .filter(entry => entry.enabled && entry.selectedTools.length > 0)
+      .slice(0, options.maxToolServers)
+    for (const scp of mounted) {
       if (disposed) return
+      let selected = [...new Set(scp.selectedTools)]
+      if (selected.length > budget) {
+        ctx.logger.warn(`inkstone: SCP server "${scp.name}" truncated to ${String(budget)} tools (maxSelectedTools)`)
+        selected = selected.slice(0, Math.max(budget, 0))
+      }
+      budget -= selected.length
       try {
-        // `inject` rides along: without the module's own `['tools']`
-        // declaration the child fiber cannot read the tools service.
-        const { apply, Config, inject, name } = await import('@deepseek-ai/dsh-mcp-client') as typeof import('@deepseek-ai/dsh-mcp-client')
-        const fiber: Fiber = await ctx.plugin({ name, Config, apply, inject }, {
-          transport: 'streamable-http',
+        const dispose = await registerScpTools(ctx, {
+          endpoint: scp.endpoint,
           serverName: serverNameOf(scp),
-          url: scp.endpoint,
-          headers: { 'SCP-HUB-API-KEY': apiKey },
-          failOnStartupError: false,
+          selectedTools: selected,
+          apiKey: () => options.scpHub.apiKey(),
+          onMissingTool: rawName => ctx.logger.warn(`inkstone: SCP server "${scp.name}" no longer lists tool "${rawName}"; remove it from the selection`),
+          ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
         })
-        track(() => { void fiber.dispose() })
+        track(dispose)
       } catch (error) {
         ctx.logger.warn(`inkstone: SCP server "${scp.name}" failed to mount: ${error instanceof Error ? error.message : String(error)}`)
       }

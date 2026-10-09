@@ -1,8 +1,9 @@
 /**
- * The SCP Hub runtime mirror: one `dsh-mcp-client` child plugin per enabled
- * SCP server (authorized with the SCP Hub API key) and one runtime skill per
- * enabled installed skill. Rebuilt whenever the volatile `scps`/`skills`
- * config changes, mirroring the delegation roster's lifecycle.
+ * The SCP Hub runtime mirror: the user-selected tools of every enabled SCP
+ * server registered on `ctx.tools` through the selective bridge (authorized
+ * with the SCP Hub API key), plus one runtime skill per enabled installed
+ * skill. Rebuilt whenever the volatile `scps`/`skills` config changes,
+ * mirroring the delegation roster's lifecycle.
  *
  * @module dsh-plugin-inkstone/scphub/mirror
  */
@@ -21,6 +22,10 @@ export interface ScpHubMirrorOptions {
     readonly skillsRoot: string;
     /** Upper bound of concurrently mounted SCP servers. */
     readonly maxToolServers: number;
+    /** Upper bound of selected tools registered across every server. */
+    readonly maxSelectedTools: number;
+    /** Injectable fetch for tests; defaults to global fetch. */
+    readonly fetchImpl?: typeof fetch;
 }
 /**
  * Normalize one catalog name into a `ctx.skills` name.
@@ -30,7 +35,7 @@ export interface ScpHubMirrorOptions {
  */
 export declare function skillNameOf(name: string, id: string): string;
 /**
- * Normalize one local entry into an `mcp-client` server name.
+ * Normalize one local entry into a tool-namespace server name.
  * @param scp - the local entry.
  * @returns the server name behind `mcp__<name>__*` tool prefixes.
  */

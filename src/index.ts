@@ -65,6 +65,8 @@ export interface Config extends DelegationConfig {
   skillsRoot: string
   /** Upper bound of concurrently mounted SCP servers. */
   maxToolServers: number
+  /** Upper bound of selected tools registered across every SCP server. */
+  maxSelectedTools: number
 }
 
 const agentSchema = z.object({
@@ -82,6 +84,7 @@ const scpSchema = z.object({
   publisher: z.string().default(''),
   endpoint: z.string().required(),
   enabled: z.boolean().default(true),
+  selectedTools: z.array(z.string()).default([]),
   toolNames: z.array(z.string()).default([]),
 })
 
@@ -106,6 +109,7 @@ export const Config = z.object({
   maxDepth: z.number().step(1).min(0).default(1),
   skillsRoot: z.string().default(defaultSkillsRoot()),
   maxToolServers: z.number().step(1).min(1).max(32).default(8),
+  maxSelectedTools: z.number().step(1).min(1).max(1024).default(128),
 })
 
 /**
@@ -144,7 +148,7 @@ export function apply(ctx: Context, config: Config): void {
   })
   ctx.plugin({
     name: 'inkstone-scp-hub',
-    inject: ['scpHub', 'skills'],
+    inject: ['scpHub', 'skills', 'tools'],
     apply(mirror: Context): void {
       let disposeMirror: (() => void) | undefined
       const rebuild = (): void => {
@@ -155,6 +159,7 @@ export function apply(ctx: Context, config: Config): void {
           skills: config.skills.get(),
           skillsRoot: config.skillsRoot,
           maxToolServers: config.maxToolServers,
+          maxSelectedTools: config.maxSelectedTools,
         })
       }
       rebuild()

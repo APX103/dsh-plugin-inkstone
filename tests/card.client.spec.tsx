@@ -23,6 +23,7 @@ function basePanelState(over: Partial<ScpHubPanelState> = {}): ScpHubPanelState 
     mutating: null,
     scps: [],
     skills: [],
+    picker: null,
     ...over,
   }
 }
