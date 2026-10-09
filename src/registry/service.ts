@@ -174,6 +174,18 @@ export class RegistryClientCore {
     this.#sts?.invalidate(agentName)
   }
 
+  /**
+   * The current SSO bearer and uid; shared with sibling services (SCP Hub)
+   * so one OpenXLab session serves every consumer.
+   * @returns the bearer token and user id.
+   * @throws RegistryError (`not-configured`) before login.
+   */
+  async identity(): Promise<{ bearer: string, userId: string | null }> {
+    const grant = await this.#requireGrant()
+    const userId = this.#ssoFor(grant).state().userId
+    return { bearer: await this.#bearer(grant), userId: userId === undefined ? null : userId }
+  }
+
   #fetchOption(): { fetchImpl?: typeof fetch } {
     return this.#config.fetchImpl !== undefined ? { fetchImpl: this.#config.fetchImpl } : {}
   }
@@ -248,6 +260,14 @@ export class A2aRegistryService extends Service {
   /** Remove the stored AK/SK pair and every in-memory token. */
   logout(): Promise<void> {
     return this.core.logout()
+  }
+
+  /**
+   * The current SSO bearer and uid, shared with sibling services.
+   * @returns the bearer token and user id.
+   */
+  identity(): Promise<{ bearer: string, userId: string | null }> {
+    return this.core.identity()
   }
 
   /**

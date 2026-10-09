@@ -1,6 +1,6 @@
 import { defineConfig, type UserConfig } from 'tsdown'
 import { readFile } from 'node:fs/promises'
-import { basename, resolve, dirname } from 'node:path'
+import { basename, resolve, dirname, join } from 'node:path'
 import { transform } from 'lightningcss'
 
 const ID = 'dsh-plugin-inkstone'
@@ -50,9 +50,9 @@ function generatedArtifactRedirect(): Parameters<UserConfig['plugins']>[0][numbe
   return {
     name: 'inkstone-generated-artifact-redirect',
     resolveId(source: string, importer: string | undefined) {
-      if (!source.endsWith('typert.remote-client') || importer === undefined || !importer.includes('/lib/types/')) return null
-      return source.replace(/^\.*\//, resolve(process.cwd(), 'src', 'client') + '/')
-        + '.js'
+      const generated = ['typert.remote-client', 'typert.scphub.remote-client']
+      if (!generated.some(name => source.endsWith(name)) || importer === undefined || !importer.includes('/lib/types/')) return null
+      return join(resolve(process.cwd(), 'src', 'client'), `${source.replace(/^\.\.?\//, '')}.js`)
     },
   }
 }

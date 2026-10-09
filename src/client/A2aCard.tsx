@@ -4,35 +4,50 @@ import type { ReactNode } from 'react'
 import { useId, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { A2aCardFace, A2aCardState } from './a2a-card-controller'
+import type { A2aCardFace, A2aCardState, DirectoryRow } from './a2a-card-controller'
+import type { ScpHubPanelFace, ScpHubPanelState } from './scp-hub-panel-controller'
 import css from './A2aCard.module.css'
+
+/** The merged inject face: registry panel plus SCP Hub panel. */
+export interface InkstoneFace extends Omit<A2aCardFace, 'hooks'>, Omit<ScpHubPanelFace, 'hooks'> {
+  hooks: A2aCardFace['hooks'] & ScpHubPanelFace['hooks']
+}
 
 /** Framework-derived props for the A2A agents settings section. */
 export type A2aCardProps = PropsRuntime<'settings.section'>
-  & PropsLocale<'settings.a2a'> & InjectFace<A2aCardFace>
+  & PropsLocale<'settings.a2a'> & InjectFace<InkstoneFace>
+
+type CardLocale = A2aCardProps['t']
 
 /** Format one token expiry instant as a short locale string. */
 function expiryText(expiresAtMs: number): string {
   return new Date(expiresAtMs).toLocaleTimeString()
 }
 
+/** The three panels below the sign-in card. */
+type PanelId = 'agents' | 'scps' | 'skills'
+
 /**
- * Render the registry sign-in, the directory, and the delegation roster.
- * @param props - Locale, the section snapshot, and the section actions.
+ * Render the registry sign-in, then the three panels: agent registry, SCP
+ * services, and skills.
+ * @param props - Locale, both panel snapshots, and both action sets.
  * @returns The section content.
  */
 export function A2aCard(props: A2aCardProps) {
   const { t } = props
   const state = props.useA2aCard(snapshot => snapshot)
+  const panel = props.useScpHubPanel(snapshot => snapshot)
   const headingId = useId()
   const [ak, setAk] = useState('')
   const [sk, setSk] = useState('')
   const [editing, setEditing] = useState(false)
+  const [active, setActive] = useState<PanelId>('agents')
   const busy = state.busy !== null || state.rosterBusy
-  const directoryBusy = busy || state.directoryLoading
+  const panelBusy = panel.mutating !== null || panel.searching !== null
   return (
     <div className={css.section}>
       {state.error !== null ? <p className={css.error} role="alert">{t('errorPrefix')}: {state.error}</p> : null}
+      {panel.error !== null ? <p className={css.error} role="alert">{t('errorPrefix')}: {panel.error}</p> : null}
       <section className={css.card} aria-labelledby={`${headingId}-sso`}>
         <h3 className={css.cardTitle} id={`${headingId}-sso`}>{t('ssoTitle')}</h3>
         <SsoFacts t={t} state={state} />
@@ -55,9 +70,9 @@ export function A2aCard(props: A2aCardProps) {
           )
           : state.login?.configured === true && editing
             ? (
-              <form className={css.fields} onSubmit={(event) => {
+              <form className={css.fields} onSubmit={event => {
                 event.preventDefault()
-                void props.signIn(ak, sk).then((ok) => {
+                void props.signIn(ak, sk).then(ok => {
                   if (!ok) return
                   setAk('')
                   setSk('')
@@ -79,7 +94,7 @@ export function A2aCard(props: A2aCardProps) {
               </form>
             )
             : (
-              <form className={css.fields} onSubmit={(event) => {
+              <form className={css.fields} onSubmit={event => {
                 event.preventDefault()
                 void props.signIn(ak, sk)
               }}>
@@ -97,10 +112,41 @@ export function A2aCard(props: A2aCardProps) {
               </form>
             )}
       </section>
+      <div className={css.tabs} role="tablist" aria-label={t('title')}>
+        {(['agents', 'scps', 'skills'] as const).map(id => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            className={css.tab}
+            aria-selected={active === id}
+            onClick={() => { setActive(id) }}
+          >
+            {id === 'agents' ? t('tabAgents') : id === 'scps' ? t('tabScps') : t('tabSkills')}
+          </button>
+        ))}
+      </div>
+      {active === 'agents'
+        ? <AgentsPanel t={t} face={props} state={state} busy={busy} headingId={headingId} />
+        : active === 'scps'
+          ? <ScpsPanel t={t} headingId={headingId} panel={panel} face={props} busy={panelBusy} />
+          : <SkillsPanel t={t} headingId={headingId} panel={panel} face={props} busy={panelBusy} />}
+    </div>
+  )
+}
+
+
+/**
+ * The agent registry panel: the directory plus the delegation roster.
+ */
+function AgentsPanel({ t, face, state, busy, headingId }: { t: CardLocale, face: Omit<InkstoneFace, 'hooks'>, state: A2aCardState, busy: boolean, headingId: string }): ReactNode {
+  const directoryBusy = busy || state.directoryLoading
+  return (
+    <>
       <section className={css.card} aria-labelledby={`${headingId}-directory`}>
         <div className={css.cardHead}>
           <h3 className={css.cardTitle} id={`${headingId}-directory`}>{t('directoryTitle')}</h3>
-          <Button size="sm" variant="outline" disabled={directoryBusy || state.login?.configured !== true} onClick={() => { void props.loadDirectory() }}>
+          <Button size="sm" variant="outline" disabled={directoryBusy || state.login?.configured !== true} onClick={() => { void face.loadDirectory() }}>
             {t('directoryRefresh')}
           </Button>
         </div>
@@ -113,7 +159,7 @@ export function A2aCard(props: A2aCardProps) {
                 actions={added => added
                   ? <Tag tone="neutral">{t('inRoster')}</Tag>
                   : (
-                    <Button size="sm" variant="outline" disabled={busy || state.rosterStatus !== 'ready'} onClick={() => { void props.addToRoster(row) }}>
+                    <Button size="sm" variant="outline" disabled={busy || state.rosterStatus !== 'ready'} onClick={() => { void face.addToRoster(row) }}>
                       {t('addToRoster')}
                     </Button>
                   )}
@@ -132,10 +178,10 @@ export function A2aCard(props: A2aCardProps) {
                 <AgentRow key={row.name} name={row.name} scheme={row.authScheme} description={row.description} added={false}
                   actions={() => (
                     <>
-                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void props.setRosterEnabled(row.name, !row.enabled) }}>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void face.setRosterEnabled(row.name, !row.enabled) }}>
                         {row.enabled ? t('rosterDisable') : t('rosterEnable')}
                       </Button>
-                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void props.removeFromRoster(row.name) }}>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void face.removeFromRoster(row.name) }}>
                         {t('rosterRemove')}
                       </Button>
                     </>
@@ -144,17 +190,147 @@ export function A2aCard(props: A2aCardProps) {
               ))}
             </ul>}
       </section>
-    </div>
+    </>
   )
 }
 
-type CardLocale = A2aCardProps['t']
+/**
+ * The SCP services panel: catalog search plus the local add/remove list.
+ */
+function ScpsPanel({ t, headingId, panel, face, busy }: { t: CardLocale, headingId: string, panel: ScpHubPanelState, face: Omit<ScpHubPanelFace, 'hooks'>, busy: boolean }): ReactNode {
+  return (
+    <section className={css.card} aria-labelledby={`${headingId}-scps`}>
+      <h3 className={css.cardTitle} id={`${headingId}-scps`}>{t('scpTitle')}</h3>
+      <CatalogSearch
+        t={t}
+        searching={panel.searching === 'scp'}
+        keyword={panel.keyword}
+        onSearch={keyword => { void face.searchCatalog('scp', keyword) }}
+      />
+      {panel.pages.scp === undefined
+        ? <p className={css.hint}>{panel.searching === 'scp' ? t('loading') : t('catalogHint')}</p>
+        : panel.pages.scp.items.length === 0
+          ? <p className={css.hint}>{t('catalogEmpty')}</p>
+          : <ul className={css.rows}>
+            {panel.pages.scp.items.map(row => (
+              <li key={row.id} className={css.row}>
+                <div className={css.rowIdentity}>
+                  <span className={css.rowName}>{row.name}</span>
+                  {row.official ? <Tag tone="solid">{t('officialTag')}</Tag> : null}
+                </div>
+                <p className={css.rowDescription} title={row.description}>{row.description}</p>
+                <div className={css.rowActions}>
+                  <Button size="sm" variant="outline" disabled={busy || panel.mutating !== null} onClick={() => { void face.addScp(row.id) }}>
+                    {t('catalogAdd')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>}
+      <h4 className={css.subTitle}>{t('localScpsTitle')}</h4>
+      {panel.scps.length === 0
+        ? <p className={css.hint}>{t('localScpsEmpty')}</p>
+        : <ul className={css.rows}>
+          {panel.scps.map(row => (
+      <li key={row.id} className={css.row}>
+        <div className={css.rowIdentity}>
+          <span className={css.rowName}>{row.name}</span>
+          <Tag tone="neutral">{row.toolNames.length > 0 ? `${row.toolNames.length} tools` : 'mcp'}</Tag>
+        </div>
+        <p className={css.rowDescription} title={row.description}>{row.description}</p>
+            <div className={css.rowActions}>
+              <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.setScpEnabled(row.id, !row.enabled) }}>
+                {row.enabled ? t('localDisable') : t('localEnable')}
+              </Button>
+              <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.removeScp(row.id) }}>
+                {t('localRemove')}
+              </Button>
+            </div>
+          </li>
+          ))}
+        </ul>}
+    </section>
+  )
+}
 
 /**
- * One directory or roster agent row: identity, scheme tag, description, and
- * the caller-supplied trailing action.
- * @param props - row identity facts and the trailing action renderer.
- * @returns one list row.
+ * The skills panel: catalog search plus the installed list.
+ */
+function SkillsPanel({ t, headingId, panel, face, busy }: { t: CardLocale, headingId: string, panel: ScpHubPanelState, face: Omit<ScpHubPanelFace, 'hooks'>, busy: boolean }): ReactNode {
+  return (
+    <section className={css.card} aria-labelledby={`${headingId}-skills`}>
+      <h3 className={css.cardTitle} id={`${headingId}-skills`}>{t('skillsTitle')}</h3>
+      <CatalogSearch
+        t={t}
+        searching={panel.searching === 'skill'}
+        keyword={panel.keyword}
+        onSearch={keyword => { void face.searchCatalog('skill', keyword) }}
+      />
+      {panel.pages.skill === undefined
+        ? <p className={css.hint}>{panel.searching === 'skill' ? t('loading') : t('catalogHint')}</p>
+        : panel.pages.skill.items.length === 0
+          ? <p className={css.hint}>{t('catalogEmpty')}</p>
+          : <ul className={css.rows}>
+            {panel.pages.skill.items.map(row => (
+              <li key={row.id} className={css.row}>
+                <div className={css.rowIdentity}>
+                  <span className={css.rowName}>{row.name}</span>
+                  {row.official ? <Tag tone="solid">{t('officialTag')}</Tag> : null}
+                </div>
+                <p className={css.rowDescription} title={row.description}>{row.description}</p>
+                <div className={css.rowActions}>
+                  <Button size="sm" variant="outline" disabled={busy || panel.mutating !== null} onClick={() => { void face.installSkill(row.id) }}>
+                    {t('catalogInstall')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>}
+      <h4 className={css.subTitle}>{t('localSkillsTitle')}</h4>
+      {panel.skills.length === 0
+        ? <p className={css.hint}>{t('localSkillsEmpty')}</p>
+        : <ul className={css.rows}>
+          {panel.skills.map(row => (
+      <li key={row.id} className={css.row}>
+        <div className={css.rowIdentity}>
+          <span className={css.rowName}>{row.name}</span>
+          <Tag tone="neutral">{row.skillName}</Tag>
+        </div>
+        <p className={css.rowDescription} title={row.description}>{row.description}</p>
+            <div className={css.rowActions}>
+              <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.setSkillEnabled(row.id, !row.enabled) }}>
+                {row.enabled ? t('localDisable') : t('localEnable')}
+              </Button>
+              <Button size="sm" variant="ghost" disabled={panel.mutating !== null} onClick={() => { void face.removeSkill(row.id) }}>
+                {t('localRemove')}
+              </Button>
+            </div>
+          </li>
+          ))}
+        </ul>}
+    </section>
+  )
+}
+
+/**
+ * One catalog search bar: keyword input plus the search button.
+ */
+function CatalogSearch({ t, searching, keyword, onSearch }: { t: CardLocale, searching: boolean, keyword: string, onSearch: (keyword: string) => void }): ReactNode {
+  const [text, setText] = useState(keyword)
+  return (
+    <form className={css.search} onSubmit={event => {
+      event.preventDefault()
+      onSearch(text)
+    }}>
+      <Input value={text} onChange={(event) => { setText(event.target.value) }} placeholder={t('catalogSearchPlaceholder')} autoComplete="off" />
+      <Button size="sm" variant="outline" type="submit" disabled={searching}>{searching ? t('loading') : t('catalogSearch')}</Button>
+    </form>
+  )
+}
+
+/**
+ * One agent registry row: identity, scheme tag, description, and the trailing
+ * action.
  */
 function AgentRow({ name, scheme, description, added, actions }: {
   name: string
@@ -176,7 +352,7 @@ function AgentRow({ name, scheme, description, added, actions }: {
 }
 
 /** One line of login facts. */
-function SsoFacts({ t, state }: { t: CardLocale; state: A2aCardState }) {
+function SsoFacts({ t, state }: { t: CardLocale, state: A2aCardState }) {
   if (state.login === undefined) {
     return <p className={css.hint}>{t('loading')}</p>
   }

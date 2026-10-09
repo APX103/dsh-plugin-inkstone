@@ -6,14 +6,17 @@
 [English](README.md) | **中文**
 
 一个独立的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件，把 A2A agent
-registry 接进你的助手：OpenXLab AK/SK 一次登录，浏览 registry 目录，像使用原生子代理一样委派远程
-A2A agent。
+registry 与 SCP Hub 接进你的助手：OpenXLab AK/SK 一次登录，三个子 Tab —— 委派远程 A2A agent、挂载
+SCP Hub 的 MCP 服务、安装平台发布的技能。
 
 ```
-设置 ──端砚 Tab──► AK/SK 登录 ──► 广场目录 ──► 添加 agent ──┐
-                                                            ▼
+设置 ──端砚 Tab──► AK/SK 登录 ──► Agent Registry ──► 添加 agent ──┐
+                                                                  ▼
   模型 ──► subagent_a2a 工具 ──► 远程 provider ──► registry A2A agents
                 （contextId 续接，按 agent 自动 SSO/STS 鉴权）
+
+       ──► SCP 服务 ──► 添加 SCP ──► mcp-client 子插件 ──► mcp__<server>__* 工具
+       ──► 技能 ──► 安装 ──► ~/.dsh/inkstone/skills ──► 运行时技能注册
 ```
 
 ## 亮点
@@ -25,16 +28,23 @@ A2A agent。
 - **健壮的 A2A 1.0 客户端** —— 卡片探测带 HTML 壳回退、冻结端点绑定、SSE 流消费、以及针对
   「答案只在 GetTask 里」的 history 回读。
 - **多轮续接** —— 对同一 agent 再次委派会续接同一远程会话（`contextId`），支持大纲确认类流程。
+- **SCP Hub 服务** —— 搜索 SCP Hub 目录并添加 MCP 服务；每个启用的 SCP 挂载一个 `dsh-mcp-client`
+  子插件（streamable-http + 自动换取并按 TTL 缓存的 `SCP-HUB-API-KEY`），工具以 `mcp__<server>__*`
+  出现。
+- **技能安装** —— 目录技能（SKILL.md + toolkit zip）原子解包安装到技能根目录并注册为运行时技能，
+  助手的技能目录立即可见。
 
-## 已验证 agent
+## 已验证（staging）
 
-| Registry agent | 鉴权 | 状态 |
+| 资源 | 类型 | 状态 |
 | --- | --- | --- |
-| a2a-test-agent | orbit_jwt | ✅ 流式 + artifacts |
-| MolClaw-agent | orbit_jwt | ✅ 答案走 artifacts |
-| ep-agent | token_exchange | ✅ |
-| caicopilot-agent | http | ✅ |
-| EarthLink | http | ✅ 连通/鉴权正常；空回复为 staging 上游配额问题的已知事项 |
+| a2a-test-agent | A2A · orbit_jwt | ✅ 流式 + artifacts |
+| MolClaw-agent | A2A · orbit_jwt | ✅ 答案走 artifacts |
+| ep-agent | A2A · token_exchange | ✅ |
+| caicopilot-agent | A2A · http | ✅ |
+| EarthLink | A2A · http | ✅ 连通/鉴权正常；空回复为 staging 上游配额问题的已知事项 |
+| ToolUniverse | SCP · MCP | ✅ 1,894 个工具以 `mcp__tooluniverse__*` 挂载 |
+| BaiChuanShuHui | 技能 | ✅ SKILL.md + 140 文件 toolkit 安装并在技能目录可见 |
 
 ## 安装
 
@@ -49,8 +59,11 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 安装后重启应用，打开 **设置 → 端砚 · A2A Agents**：
 
 1. 填入 OpenXLab AK/SK —— 经凭据服务存储一次，令牌生命周期自动维护。
-2. 目录自动加载，挑选想要的 agent。
-3. 让助手委派即可：`subagent_a2a` 出现在工具列表，`agent` 枚举就是你的名单。
+2. **Agent Registry**：目录自动加载，挑选想要的 agent。
+3. **SCP 服务 / 技能**：搜索 SCP Hub 目录，添加服务或安装技能；改动即时热挂载（MCP 工具 /
+   技能注册），无需重启。
+4. 让助手委派即可：`subagent_a2a` 出现在工具列表，`agent` 枚举就是你的名单；MCP 工具以
+   `mcp__<server>__*` 出现，已安装技能进入技能目录。
 
 ## 配置
 
@@ -63,6 +76,13 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 | `agents` | `[]` | volatile 名单：name / endpointUrl / authScheme / description / enabled |
 | `toolName` | `subagent_a2a` | 模型侧工具名（`subagent_*` 前缀走原生子代理 UI 分组） |
 | `maxDepth` | `1` | 委派深度上限 |
+| `scpHubApiBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api` | SCP Hub 平台根（目录、详情） |
+| `scpHubApiKeyBaseUrl` | `https://discovery-staging.intern-ai.org.cn/api/moce/v1` | 执行面 API key 换取的 moce 根 |
+| `scpHubEnvironment` | `staging` | 凭据记录选择器（`staging` / `production`） |
+| `scps` | `[]` | volatile SCP 清单：id / name / description / publisher / endpoint / enabled / toolNames |
+| `skills` | `[]` | volatile 技能清单：id / skillName / name / description / enabled |
+| `skillsRoot` | `~/.dsh/inkstone/skills` | 目录技能的安装根目录 |
+| `maxToolServers` | `8` | 并发挂载的 SCP 服务上限 |
 
 ## 包结构
 
@@ -72,13 +92,15 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 | `src/registry/` | OpenXLab SSO · STS 换票 · MCP 目录 · 宿主服务 `ctx.a2aRegistry` |
 | `src/remote/` | 面向设置页的 `a2aRegistry` Remote 控制器 |
 | `src/subagent/` | 委派镜像：providers + `subagent_a2a` 工具 |
+| `src/scphub/` | SCP Hub 客户端 · API key 换取 · 宿主服务 `ctx.scpHub` · `scpHub` Remote 控制器 · mcp-client/技能镜像 |
+| `src/skills/` | toolkit zip 读取（中央目录遍历 + `node:zlib` 解压）与原子安装 |
 | `src/client/` | 浏览器设置 Tab（自挂载 Remote 命名空间） |
 
 ## 开发
 
 ```sh
 pnpm install
-pnpm test     # 155 个测试
+pnpm test     # 179 个测试
 pnpm build    # tsc（两段式）+ tsdown → lib/index.js + lib/client.js
 ```
 

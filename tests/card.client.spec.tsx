@@ -7,11 +7,25 @@ import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { A2aCard, type A2aCardProps } from '../src/client/A2aCard'
 import type { A2aCardState } from '../src/client/a2a-card-controller'
+import type { ScpHubPanelState } from '../src/client/scp-hub-panel-controller'
 import { en } from '../src/client/locales'
 
 afterEach(cleanup)
 
 const t = (key: keyof typeof en) => en[key]
+
+function basePanelState(over: Partial<ScpHubPanelState> = {}): ScpHubPanelState {
+  return {
+    error: null,
+    searching: null,
+    keyword: '',
+    pages: { scp: undefined, skill: undefined },
+    mutating: null,
+    scps: [],
+    skills: [],
+    ...over,
+  }
+}
 
 const PAPER_DIRECTORY = { name: 'paper-agent', description: 'writes papers', endpointUrl: 'https://paper.test/a2a', authScheme: 'orbit_jwt', probeStatus: 'ok' }
 
@@ -44,14 +58,26 @@ function renderA2a(state: Partial<A2aCardState> = {}) {
     setRosterEnabled: vi.fn(async () => {}),
     removeFromRoster: vi.fn(async () => {}),
   }
+  const panelStore = createSnapshotStore<ScpHubPanelState>(basePanelState())
+  const panelActions = {
+    searchCatalog: vi.fn(async () => {}),
+    addScp: vi.fn(async () => {}),
+    removeScp: vi.fn(async () => {}),
+    setScpEnabled: vi.fn(async () => {}),
+    installSkill: vi.fn(async () => {}),
+    removeSkill: vi.fn(async () => {}),
+    setSkillEnabled: vi.fn(async () => {}),
+  }
   const props = {
     ...actions,
+    ...panelActions,
     close: () => {},
     t,
     useA2aCard: bindSnapshotSelector(store),
+    useScpHubPanel: bindSnapshotSelector(panelStore),
   } as A2aCardProps
   const view = render(<A2aCard {...props} />)
-  return { actions, store, unmount: view.unmount }
+  return { actions, panelActions, store, unmount: view.unmount }
 }
 
 describe('A2aCard', () => {

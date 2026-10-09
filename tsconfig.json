@@ -33,6 +33,8 @@
       "@deepseek-ai/dsh-client-ui-settings/client": ["/Volumes/ssd/main_link/work/deepseek-harness/packages/client/ui-settings/lib/types/client/index.d.ts"],
       "@deepseek-ai/dsh-client-ui-slots": ["/Volumes/ssd/main_link/work/deepseek-harness/packages/client/ui-slots/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-client-test-runtime": ["/Volumes/ssd/main_link/work/deepseek-harness/packages/test-support/client-runtime/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-mcp-client": ["/Volumes/ssd/main_link/work/deepseek-harness/packages/mcp/mcp-client/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-skill": ["/Volumes/ssd/main_link/work/deepseek-harness/packages/skill/skill/lib/types/index.d.ts"],
       "@testing-library/react": ["/Volumes/ssd/main_link/work/deepseek-harness/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.2_@types+react-dom@18.3.7_@type_daff88022cc58198e4af56e91a2a62c5/node_modules/@testing-library/react/types/index.d.ts"]
     }
   },

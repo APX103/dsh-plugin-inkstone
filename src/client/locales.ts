@@ -33,6 +33,26 @@ export type A2aSettingsLocaleKey =
   | 'rosterEnable'
   | 'rosterDisable'
   | 'rosterRemove'
+  | 'tabAgents'
+  | 'tabScps'
+  | 'tabSkills'
+  | 'scpTitle'
+  | 'skillsTitle'
+  | 'subTitle'
+  | 'catalogHint'
+  | 'catalogEmpty'
+  | 'catalogSearch'
+  | 'catalogSearchPlaceholder'
+  | 'catalogAdd'
+  | 'catalogInstall'
+  | 'officialTag'
+  | 'localScpsTitle'
+  | 'localScpsEmpty'
+  | 'localSkillsTitle'
+  | 'localSkillsEmpty'
+  | 'localEnable'
+  | 'localDisable'
+  | 'localRemove'
   | 'loading'
   | 'errorPrefix'
 
@@ -65,6 +85,26 @@ export const en: Record<A2aSettingsLocaleKey, string> = {
   rosterEnable: 'Enable',
   rosterDisable: 'Disable',
   rosterRemove: 'Remove',
+  tabAgents: 'Agent Registry',
+  tabScps: 'SCP Services',
+  tabSkills: 'Skills',
+  scpTitle: 'SCP Hub services',
+  skillsTitle: 'Skills',
+  subTitle: 'Added locally',
+  catalogHint: 'Search the SCP Hub catalog to add services.',
+  catalogEmpty: 'No catalog results.',
+  catalogSearch: 'Search',
+  catalogSearchPlaceholder: 'Keyword',
+  catalogAdd: 'Add',
+  catalogInstall: 'Install',
+  officialTag: 'Official',
+  localScpsTitle: 'Added SCP services',
+  localScpsEmpty: 'No SCP services added yet.',
+  localSkillsTitle: 'Installed skills',
+  localSkillsEmpty: 'No skills installed yet.',
+  localEnable: 'Enable',
+  localDisable: 'Disable',
+  localRemove: 'Remove',
   loading: 'Loading…',
   errorPrefix: 'Failed',
 }
@@ -98,6 +138,26 @@ export const zh: Record<A2aSettingsLocaleKey, string> = {
   rosterEnable: '启用',
   rosterDisable: '停用',
   rosterRemove: '移除',
+  tabAgents: 'Agent Registry',
+  tabScps: 'SCP 服务',
+  tabSkills: 'Skills',
+  scpTitle: 'SCP Hub 服务',
+  skillsTitle: '技能',
+  subTitle: '已添加到本地',
+  catalogHint: '搜索 SCP Hub 目录以添加服务。',
+  catalogEmpty: '目录没有匹配结果。',
+  catalogSearch: '搜索',
+  catalogSearchPlaceholder: '关键词',
+  catalogAdd: '添加',
+  catalogInstall: '安装',
+  officialTag: '官方',
+  localScpsTitle: '已添加的 SCP 服务',
+  localScpsEmpty: '尚未添加 SCP 服务。',
+  localSkillsTitle: '已安装技能',
+  localSkillsEmpty: '尚未安装技能。',
+  localEnable: '启用',
+  localDisable: '停用',
+  localRemove: '移除',
   loading: '加载中…',
   errorPrefix: '操作失败',
 }
