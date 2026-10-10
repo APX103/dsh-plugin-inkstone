@@ -29,7 +29,10 @@ Settings ──端砚 tab──► AK/SK sign-in ──► Agent Registry ──
   want in the settings page and only those register, as `mcp__<server>__*`, with the execution key
   handled automatically.
 - **Skills** — install catalog skills (SKILL.md + toolkit zip) atomically under the skills root and
-  register them as runtime skills; the agent sees them in its skill catalog immediately.
+  register them as runtime skills; the agent sees them in their skill catalog immediately.
+- **Bundled Inkstone skills** — a set of verified scientific skills ships inside the plugin (`skills/`
+  directory) and registers on install; switch individual ones off in the Inkstone Skills tab, hot
+  without a restart.
 
 Design notes and verification records live in [doc/](doc/).
 
@@ -71,6 +74,7 @@ Roster edits from the settings tab land in the profile's user layer; the same fi
 | `scpHubEnvironment` | `staging` | Credential-record selector (`staging` / `production`) |
 | `scps` | `[]` | Volatile SCP list: id / name / description / publisher / endpoint / enabled / selectedTools / toolNames |
 | `skills` | `[]` | Volatile skill list: id / skillName / name / description / enabled |
+| `disabledBuiltinSkills` | `[]` | Volatile bundled-skill names switched off (all ship enabled) |
 | `skillsRoot` | `~/.dsh/inkstone/skills` | Install root for catalog skills |
 | `maxToolServers` | `8` | Upper bound of concurrently mounted SCP servers |
 | `maxSelectedTools` | `128` | Upper bound of selected tools registered across every server |
@@ -84,7 +88,8 @@ Roster edits from the settings tab land in the profile's user layer; the same fi
 | `src/remote/` | `a2aRegistry` Remote controller for the settings tab |
 | `src/subagent/` | Delegation mirror: providers + the `subagent_a2a` tool |
 | `src/scphub/` | SCP Hub client · API-key exchange · host service `ctx.scpHub` · `scpHub` Remote controller · mcp-client/skills mirror |
-| `src/skills/` | Toolkit zip reading (central-directory walk, `node:zlib` inflate) and atomic install |
+| `src/skills/` | Toolkit zip reading (central-directory walk, `node:zlib` inflate), atomic install, bundled-skill mounting |
+| `skills/` | Bundled SKILL.md assets shipped with the plugin (data, not build output) |
 | `src/client/` | Browser settings tab (self-mounts its Remote namespaces) |
 
 ## Development

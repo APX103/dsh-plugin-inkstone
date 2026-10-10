@@ -125,6 +125,20 @@ SCP Hub 有两个不重合的 API 根，配置里是两个独立字段：
 `mcp__<serverName>__<rawName>`；超长或含非法字符时规范化并追加 12 位 SHA-256 短哈希，保证不同
 工具永不撞名。
 
+### 内置端砚技能（第四 Tab）
+
+插件自带 `skills/` 目录（每个子目录一个 `SKILL.md` + 可选资源），随包分发、无需构建——加一个
+技能就是加一个目录。激活时 mirror 的第三个半边把它们注册为 `source: 'bundled'` 的虚拟技能
+（内容内联、`resourceBase` 指向技能目录），全部默认启用；`disabledBuiltinSkills`（volatile）是
+关闭清单，端砚技能 Tab 的开关直接写它。技能指令从 InternAgent 已验证的内置目录移植，工具引用
+改写为 DSH 现有面（`web_search`/`web_fetch`/`read`/`read_image`/`bash` + 本地 matplotlib，挂载的
+`mcp__*` 工具优先用于结构化学术检索）。
+
+**热重建的监听方式**：loader 在配置所属 fiber 上 emit `loader/volatile-update`，并设
+`Context.filter` 限定 `owner.fiber === fiber`——子插件 fiber 上的普通 `ctx.on` 永远收不到。
+监听必须带 `{ global: true }`（绕过 filter 检查）。镜像重建是幂等的全量重建，因此收到别的
+entry 的更新也只是多一次无害重建。
+
 ## 5. 技能安装的安全边界
 
 目录技能 = SKILL.md + 可选 toolkit zip。安装路径 `skillArchive → installLocalSkill → installSkill`：

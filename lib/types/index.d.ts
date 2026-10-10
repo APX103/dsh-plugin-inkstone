@@ -26,6 +26,8 @@ export { ScpHubClient, ScpHubApiKey, SCP_HUB_DEPLOYMENTS } from './scphub/index'
 export type { ScpHubCatalogItem, ScpHubCatalogPage, ScpHubScpDetail, ScpHubSkillDetail, ScpHubToolSummary } from './scphub/client';
 export type { LocalScp, LocalSkill } from './scphub/types';
 export { readSkillArchive, installSkill, defaultSkillsRoot } from './skills/install';
+export { loadBuiltinSkills, parseSkillMarkdown, registerBuiltinSkills } from './skills/builtin';
+export type { BuiltinSkill } from './skills/builtin';
 /** Cordis plugin name. */
 export declare const name = "inkstone";
 /** Services required before the plugin activates. */
@@ -46,6 +48,8 @@ export interface Config extends DelegationConfig {
     scps: Volatile<LocalScp[]>;
     /** The locally installed skills. */
     skills: Volatile<LocalSkill[]>;
+    /** Bundled skill names the user switched off; every shipped skill enables by default. */
+    disabledBuiltinSkills: Volatile<string[]>;
     /** Skills install root directory. */
     skillsRoot: string;
     /** Upper bound of concurrently mounted SCP servers. */
@@ -104,6 +108,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         description: z<string, string, "defined">;
         enabled: z<boolean, boolean, "defined">;
     }>>[]>, "volatile-defined">;
+    disabledBuiltinSkills: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
     toolName: z<string, string, "defined">;
     maxDepth: z<number, number, "defined">;
     skillsRoot: z<string, string, "defined">;
@@ -160,6 +165,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         description: z<string, string, "defined">;
         enabled: z<boolean, boolean, "defined">;
     }>>[]>, "volatile-defined">;
+    disabledBuiltinSkills: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
     toolName: z<string, string, "defined">;
     maxDepth: z<number, number, "defined">;
     skillsRoot: z<string, string, "defined">;

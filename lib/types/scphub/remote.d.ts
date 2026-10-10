@@ -61,9 +61,16 @@ export type ScpHubLocalSkillView = {
     readonly description: string;
 };
 /** Controller options: install facts the config owns. */
+/** Wire projection of one bundled skill's catalog facts. */
+export type ScpHubBuiltinSkillView = {
+    readonly name: string;
+    readonly description: string;
+};
 export interface ScpHubControllerOptions {
     /** Skills install root directory. */
     readonly skillsRoot: string;
+    /** Bundled skills root directory shipped with the plugin. */
+    readonly builtinSkillsRoot: string;
     /** Skill toolkit unpack bounds. */
     readonly maxToolkitEntries: number;
     readonly maxToolkitBytes: number;
@@ -126,4 +133,11 @@ export default class ScpHubController extends TypertRemoteService {
      * @param signal - client cancellation.
      */
     removeSkill(id: string, signal: AbortSignal): Promise<void>;
+    /**
+     * List the bundled scientific skills shipped with the plugin; enable state
+     * is config-owned and rendered client-side from the settings form.
+     * @param signal - client cancellation.
+     * @returns the shipped skill catalog facts.
+     */
+    builtinSkills(signal: AbortSignal): Promise<readonly ScpHubBuiltinSkillView[]>;
 }

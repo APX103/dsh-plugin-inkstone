@@ -24,6 +24,9 @@ function basePanelState(over: Partial<ScpHubPanelState> = {}): ScpHubPanelState 
     scps: [],
     skills: [],
     picker: null,
+    builtin: [],
+    builtinLoading: false,
+    builtinDisabled: [],
     ...over,
   }
 }

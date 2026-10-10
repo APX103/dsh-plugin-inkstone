@@ -58,6 +58,11 @@ export interface ScpHubLocalSkillView {
   readonly description: string
 }
 
+export interface ScpHubBuiltinSkillView {
+  readonly name: string
+  readonly description: string
+}
+
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$736370487562 {
     search: (type: 'scp' | 'skill', keyword: string | null, page: number, signal?: AbortSignal) => Promise<RemoteResult<ScpHubCatalogPageView>>
@@ -66,6 +71,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     addScp: (id: string, signal?: AbortSignal) => Promise<RemoteResult<ScpHubScpDetailView>>
     installSkill: (id: string, signal?: AbortSignal) => Promise<RemoteResult<ScpHubLocalSkillView>>
     removeSkill: (id: string, signal?: AbortSignal) => Promise<RemoteResult<void>>
+    builtinSkills: (signal?: AbortSignal) => Promise<RemoteResult<readonly ScpHubBuiltinSkillView[]>>
   }
   interface TypertRemoteMap {
     'scpHub/search': (type: 'scp' | 'skill', keyword: string | null, page: number, signal?: AbortSignal) => Promise<RemoteResult<ScpHubCatalogPageView>>
@@ -74,6 +80,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'scpHub/addScp': (id: string, signal?: AbortSignal) => Promise<RemoteResult<ScpHubScpDetailView>>
     'scpHub/installSkill': (id: string, signal?: AbortSignal) => Promise<RemoteResult<ScpHubLocalSkillView>>
     'scpHub/removeSkill': (id: string, signal?: AbortSignal) => Promise<RemoteResult<void>>
+    'scpHub/builtinSkills': (signal?: AbortSignal) => Promise<RemoteResult<readonly ScpHubBuiltinSkillView[]>>
   }
   interface TypertRemoteNamespaceMap {
     'scpHub': TypertRemoteNamespace$736370487562

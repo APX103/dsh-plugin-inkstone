@@ -29,6 +29,8 @@ SCP Hub 的 MCP 服务、安装平台发布的技能。
   `mcp__<server>__*` 注册，执行面密钥自动处理。
 - **技能安装** —— 目录技能（SKILL.md + toolkit zip）原子解包安装到技能根目录并注册为运行时技能，
   助手的技能目录立即可见。
+- **内置端砚技能** —— 一组经过验证的科研技能随插件打包（`skills/` 目录），安装即注册；可在
+  端砚技能 Tab 逐个关闭，热生效、无需重启。
 
 设计说明与验证记录见 [doc/](doc/)。
 
@@ -67,6 +69,7 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 | `scpHubEnvironment` | `staging` | 凭据记录选择器（`staging` / `production`） |
 | `scps` | `[]` | volatile SCP 清单：id / name / description / publisher / endpoint / enabled / selectedTools / toolNames |
 | `skills` | `[]` | volatile 技能清单：id / skillName / name / description / enabled |
+| `disabledBuiltinSkills` | `[]` | volatile 已关闭的内置技能名（默认全部启用） |
 | `skillsRoot` | `~/.dsh/inkstone/skills` | 目录技能的安装根目录 |
 | `maxToolServers` | `8` | 并发挂载的 SCP 服务上限 |
 | `maxSelectedTools` | `128` | 所有服务合计可注册的选中工具上限 |
@@ -80,7 +83,8 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 | `src/remote/` | 面向设置页的 `a2aRegistry` Remote 控制器 |
 | `src/subagent/` | 委派镜像：providers + `subagent_a2a` 工具 |
 | `src/scphub/` | SCP Hub 客户端 · API key 换取 · 宿主服务 `ctx.scpHub` · `scpHub` Remote 控制器 · mcp-client/技能镜像 |
-| `src/skills/` | toolkit zip 读取（中央目录遍历 + `node:zlib` 解压）与原子安装 |
+| `src/skills/` | toolkit zip 读取（中央目录遍历 + `node:zlib` 解压）、原子安装、内置技能挂载 |
+| `skills/` | 随插件分发的内置 SKILL.md 资产（数据，非构建产物） |
 | `src/client/` | 浏览器设置 Tab（自挂载 Remote 命名空间） |
 
 ## 开发

@@ -1,0 +1,15 @@
+---
+name: academic-figure
+description: Create publication-ready academic figures from experimental data and statistical results. Use for scatter plots, line charts, bar charts, box plots, heatmap visualizations and heatmaps, multi-panel figures, or annotated charts for papers, reports, posters, and presentations; 适用于将实验数据与统计结果制作成论文、报告、海报和演示所需的科研图、散点图、柱状图、折线图、箱线图、热图、多面板图与标注图。
+---
+
+Create or revise scientific figures with local Python + Matplotlib run through `bash`. This Skill is guidance only and never grants authority beyond the tools already available this turn.
+
+Workflow:
+1. Establish the figure's one-sentence scientific claim and use only the user's actual data. Never invent measurements, sample sizes, uncertainties, significance, exclusions, units, category mappings, or structures. Ask only when a missing scientific fact changes the meaning; choose safe typography, palette, layout and output defaults yourself.
+2. Select the chart from the data shape. Preserve raw observations when useful, state n and the replication unit, keep excluded rows out of summaries, qualify titles that are not true for every plotted row, use shared limits for comparable panels, and never use filled bars on a log-scaled value axis.
+3. Write a self-contained Python script into the workspace (for example `figures/make_figure.py`) with `write`, then run it with `bash` (`python3 figures/make_figure.py`). Save intended deliverables as PNG + PDF (+ SVG when useful) under `figures/` in the workspace. Script-side checks: assert axis limits and label presence; fail the run rather than emit a clipped or empty figure. Use `rcParams` once per script for fonts (a serif or neutral sans at 7–9 pt), DPI (300 for PNG), and a colorblind-safe palette; keep one entity colour across panels, avoid red/green-only distinctions, use economical complete labels, outward ticks, frameless legends, and no more than three font roles.
+4. Physical sizing: Matplotlib `figsize` is measured in inches. A typical single column is 85–89 mm ≈ 3.4–3.5 in; a double column is 174–183 mm ≈ 6.9–7.2 in. Ordinary two-panel figures are usually about 7 by 4.5 inches. Never pass millimetre numbers such as 90, 140 or 180 directly to `figsize`. Prefer one master figure with subplots for ordinary multi-panel layouts; keep physical dimensions, scales, typography, colours, legends, and source mappings consistent if panels must be rendered separately.
+5. Inspect before judging. A successful save is not perceptual review: when the user requests visual verification (or a figure will be published), read the generated PNG back with `read_image` and check clipped labels, collisions, legends, scales, and values; otherwise state that perceptual QA remains incomplete. Fix concrete findings and re-run only the affected script; stop after at most three focused revision rounds.
+
+Return the figure claim, exact generated paths and sizes, the script-side QA result, and unresolved scientific or venue assumptions. Do not paste the full script in the reply when the workspace already preserves it.
