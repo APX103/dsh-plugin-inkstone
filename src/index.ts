@@ -11,6 +11,8 @@
  * @module dsh-plugin-inkstone
  */
 
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import z from '@deepseek-ai/schemastery'
@@ -24,6 +26,7 @@ import { registerA2aTool } from './subagent/tool'
 import { SCP_HUB_DEPLOYMENTS, ScpHubService } from './scphub/service'
 import { rebuildScpHubMirror } from './scphub/mirror'
 import { defaultSkillsRoot } from './skills/install'
+import { mountBuiltinSkills } from './skills/builtin'
 import ScpHubController from './scphub/remote'
 
 export { A2aError, classifyA2aError } from './a2a/error'
@@ -38,6 +41,8 @@ export { ScpHubClient, ScpHubApiKey, SCP_HUB_DEPLOYMENTS } from './scphub/index'
 export type { ScpHubCatalogItem, ScpHubCatalogPage, ScpHubScpDetail, ScpHubSkillDetail, ScpHubToolSummary } from './scphub/client'
 export type { LocalScp, LocalSkill } from './scphub/types'
 export { readSkillArchive, installSkill, defaultSkillsRoot } from './skills/install'
+export { loadBuiltinSkills, parseSkillMarkdown, registerBuiltinSkills } from './skills/builtin'
+export type { BuiltinSkill } from './skills/builtin'
 
 /** Cordis plugin name. */
 export const name = 'inkstone'
@@ -61,6 +66,8 @@ export interface Config extends DelegationConfig {
   scps: Volatile<LocalScp[]>
   /** The locally installed skills. */
   skills: Volatile<LocalSkill[]>
+  /** Bundled skill names the user switched off; every shipped skill enables by default. */
+  disabledBuiltinSkills: Volatile<string[]>
   /** Skills install root directory. */
   skillsRoot: string
   /** Upper bound of concurrently mounted SCP servers. */
@@ -105,6 +112,7 @@ export const Config = z.object({
   agents: z.array(agentSchema).volatile().default([]),
   scps: z.array(scpSchema).volatile().default([]),
   skills: z.array(skillSchema).volatile().default([]),
+  disabledBuiltinSkills: z.array(z.string()).volatile().default([]),
   toolName: z.string().default('subagent_a2a'),
   maxDepth: z.number().step(1).min(0).default(1),
   skillsRoot: z.string().default(defaultSkillsRoot()),
@@ -121,6 +129,9 @@ export const Config = z.object({
  * @param config - deployment configuration with the volatile roster.
  */
 export function apply(ctx: Context, config: Config): void {
+  // Computed from the ENTRY module's URL: one level up lands on the package
+  // root both from built `lib/index.js` and from `src/index.ts` under tsx.
+  const builtinSkillsRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills')
   ctx.plugin(A2aRegistryService, {
     registryBaseUrl: config.registryBaseUrl,
     ssoBaseUrl: config.ssoBaseUrl,
@@ -143,6 +154,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(A2aRegistryController)
   ctx.plugin(ScpHubController, {
     skillsRoot: config.skillsRoot,
+    builtinSkillsRoot,
     maxToolkitEntries: 512,
     maxToolkitBytes: 32 * 1024 * 1024,
   })
@@ -151,8 +163,12 @@ export function apply(ctx: Context, config: Config): void {
     inject: ['scpHub', 'skills', 'tools'],
     apply(mirror: Context): void {
       let disposeMirror: (() => void) | undefined
+      let disposeBuiltin: (() => void) | undefined
+      let builtinGeneration = 0
       const rebuild = (): void => {
         disposeMirror?.()
+        disposeBuiltin?.()
+        disposeBuiltin = undefined
         disposeMirror = rebuildScpHubMirror(mirror, {
           scpHub: mirror.scpHub,
           scps: config.scps.get(),
@@ -161,11 +177,20 @@ export function apply(ctx: Context, config: Config): void {
           maxToolServers: config.maxToolServers,
           maxSelectedTools: config.maxSelectedTools,
         })
+        const generation = ++builtinGeneration
+        void mountBuiltinSkills(mirror, builtinSkillsRoot, config.disabledBuiltinSkills.get()).then(dispose => {
+          if (generation !== builtinGeneration) {
+            dispose()
+            return
+          }
+          disposeBuiltin = dispose
+        })
       }
       rebuild()
-      mirror.on('loader/volatile-update', rebuild)
+      mirror.on('loader/volatile-update', rebuild, { global: true })
       mirror.effect(() => () => {
         disposeMirror?.()
+        disposeBuiltin?.()
       })
     },
   })
@@ -192,7 +217,7 @@ export function apply(ctx: Context, config: Config): void {
         }
       }
       rebuild()
-      mirror.on('loader/volatile-update', rebuild)
+      mirror.on('loader/volatile-update', rebuild, { global: true })
       mirror.effect(() => () => {
         disposeMirrors?.()
         continuations.clear()

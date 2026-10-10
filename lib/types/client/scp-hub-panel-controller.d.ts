@@ -87,6 +87,12 @@ export interface ScpHubPanelState {
     readonly skills: readonly LocalSkillRow[];
     /** The open tool picker; null when closed. */
     readonly picker: ToolPickerState | null;
+    /** The bundled-skills catalog; empty until first loaded. */
+    readonly builtin: readonly BuiltinSkillRow[];
+    /** Whether the bundled-skills catalog request is in flight. */
+    readonly builtinLoading: boolean;
+    /** Names the user switched off, mirrored off the configuration form. */
+    readonly builtinDisabled: readonly string[];
 }
 /** Actions and observable state bound by the panel renderer. */
 export interface ScpHubPanelFace {
@@ -101,15 +107,23 @@ export interface ScpHubPanelFace {
     closeToolPicker(): void;
     setToolPickerPage(page: number): void;
     toggleTool(scpId: string, name: string, checked: boolean): Promise<void>;
+    loadBuiltinSkills(): Promise<void>;
+    setBuiltinEnabled(name: string, enabled: boolean): Promise<void>;
     installSkill(id: string): Promise<void>;
     removeSkill(id: string): Promise<void>;
     setSkillEnabled(id: string, enabled: boolean): Promise<void>;
+}
+/** One bundled skill row as the Remote namespace reports it. */
+export interface BuiltinSkillRow {
+    readonly name: string;
+    readonly description: string;
 }
 /** Shape of the plugin's `scps`/`skills`/bound fields on the wire. */
 type LocalListsConfig = {
     scps?: unknown;
     skills?: unknown;
     maxSelectedTools?: unknown;
+    disabledBuiltinSkills?: unknown;
 };
 /** One Remote failure as this panel reads it. */
 export interface PanelRemoteFailure {

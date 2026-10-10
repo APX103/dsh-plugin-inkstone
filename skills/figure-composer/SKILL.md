@@ -1,0 +1,13 @@
+---
+name: figure-composer
+description: Compose and review one publication-grade multi-panel scientific figure while reusing the existing academic-figure workflow for rendering and QA. Use for figure decks, panel outlines, composite figures, panel ordering, cross-panel consistency, and focused figure revision; 适用于多面板科研图的叙事、版式、面板排序、一致性检查、整图审查与定向修订。
+---
+
+Compose or revise one publication-grade multi-panel scientific figure. This Skill owns the figure-level narrative and layout; the `academic-figure` skill owns panel rendering, data fidelity, mechanical QA, and export. Use both workflows together instead of inventing a second plotting backend.
+
+1. Freeze one sentence that the whole figure must make true, the actual workspace evidence for every panel, the target venue width, and any non-negotiable scientific or visual constraints. Never invent missing values, sample sizes, uncertainty, significance, units, mappings, or structures.
+2. Draft a bounded panel outline on a 12-column grid. Give every panel a letter, role, one-sentence message, exact source data, chart family, row, starting column, column span, label budget, and exact ask. The first panel should orient a reader with no context; the strongest quantitative panel should carry the claim; supporting panels should be ordered by how much they strengthen or qualify it. Prefer one master figure and a simple grid. Five to ten panels is a review prompt, not a requirement.
+3. Render through the `academic-figure` workflow: one Python + Matplotlib script in the workspace, executed with `bash`. Prefer one master figure for ordinary layouts. If panels must be produced separately, keep physical dimensions, scales, typography, colours, legends, and source mappings consistent; compose them only with the ordinary workspace tools available this turn.
+4. Render and inspect the complete figure before judging it. Review in two passes: first the figure-level layout, reading order, panel balance, seams, letters, legends and visual hierarchy; then each panel's values, labels, scales, uncertainty, source mapping and support for the frozen claim. Run the script-side checks; use `read_image` on the exported PNG when the user requested visual verification. Mechanical checks are not perceptual review.
+5. Revise only affected panels or layout facts and recompose. Stop after at most three focused review rounds; do not regenerate a correct panel merely for visual novelty. Preserve exact source-to-panel provenance throughout.
+6. Deliver the final figure as workspace files under `figures/`. Return the claim, panel outline, exact generated paths, QA result, source mapping, and unresolved scientific or venue assumptions.

@@ -36,6 +36,12 @@ export type A2aSettingsLocaleKey =
   | 'tabAgents'
   | 'tabScps'
   | 'tabSkills'
+  | 'tabBuiltin'
+  | 'builtinTitle'
+  | 'builtinHint'
+  | 'builtinEmpty'
+  | 'builtinOn'
+  | 'builtinOff'
   | 'scpTitle'
   | 'skillsTitle'
   | 'subTitle'
@@ -97,6 +103,12 @@ export const en: Record<A2aSettingsLocaleKey, string> = {
   tabAgents: 'Agent Registry',
   tabScps: 'SCP Services',
   tabSkills: 'Skills',
+  tabBuiltin: 'Inkstone Skills',
+  builtinTitle: 'Bundled Inkstone skills',
+  builtinHint: 'Scientific skills shipped inside the plugin; all are enabled on install. Switch any off here — changes apply without a restart.',
+  builtinEmpty: 'No bundled skills found in the plugin package.',
+  builtinOn: 'enabled',
+  builtinOff: 'disabled',
   scpTitle: 'SCP Hub services',
   skillsTitle: 'Skills',
   subTitle: 'Added locally',
@@ -159,6 +171,12 @@ export const zh: Record<A2aSettingsLocaleKey, string> = {
   tabAgents: 'Agent Registry',
   tabScps: 'SCP 服务',
   tabSkills: 'Skills',
+  tabBuiltin: '端砚技能',
+  builtinTitle: '内置端砚技能',
+  builtinHint: '随插件打包的科研技能，安装即全部启用；可在此按需关闭，改动即时生效。',
+  builtinEmpty: '插件包内未发现内置技能。',
+  builtinOn: '已启用',
+  builtinOff: '已停用',
   scpTitle: 'SCP Hub 服务',
   skillsTitle: '技能',
   subTitle: '已添加到本地',

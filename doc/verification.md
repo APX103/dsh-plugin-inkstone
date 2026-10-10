@@ -60,7 +60,24 @@
 实现备注：dsh-mcp-client 无工具白名单能力，SCP Hub 执行面又实测无会话（每请求独立），故插件自管
 轻量桥（发现一次 + 按调用 POST），细节见设计文档第 4 节。
 
-## 4. 已知事项
+## 4. 内置端砚技能（feat/scp-hub 后续，2026-10-10）
+
+第一批 5 个科研技能从 InternAgent 已验证的内置目录移植改写（literature-review / academic-figure /
+figure-composer / paper-narrative / indication-dossier），工具引用映射到 DSH 现有工具面：
+
+| 验证项 | 结果 | 证据 |
+| --- | --- | --- |
+| 第四 Tab 渲染 | ✅ | Inkstone Skills 列出 5 个技能，全部 enabled，含 Disable 操作 |
+| 注册（模型可见） | ✅ | 新会话询问技能目录，5 个逐项回答"有" |
+| 关闭落盘 | ✅ | Disable 后 `disabledBuiltinSkills: [indication-dossier]` 写入 profile 用户层 |
+| 冷启动过滤 | ✅ | 重启后模型回答 indication-dossier"没有"、literature-review"有" |
+| 热启用 | ✅ | 运行中 Enable，不重启，新会话立即可见 |
+| 单元测试 | ✅ | 194 tests（新增 6：frontmatter 解析、目录加载、注册过滤、随包目录冒烟）；tsc 零错误 |
+
+本轮同时修复一个存量缺陷：`loader/volatile-update` 在配置所属 fiber 上带 filter 派发，子 fiber
+监听器必须 `{ global: true }` 才能收到——此前委派名单/SCP 勾选/内置技能的"热生效"实际都依赖重启。
+
+## 5. 已知事项
 
 - EarthLink 空回复为上游 staging 配额问题（见上表），客户端无待办。
 - 需要会话（拒绝无状态请求）的 SCP 服务器暂不支持（见设计文档第 4 节边界说明）；上游工具清单

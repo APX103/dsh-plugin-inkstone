@@ -11,6 +11,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { ScpHubCatalogItem, ScpHubCatalogPage, ScpHubScpDetail, ScpHubSkillDetail, ScpHubToolSummary } from './client'
 import type { ScpHubService } from './service'
+import { loadBuiltinSkills } from '../skills/builtin'
 import { installLocalSkill, uninstallLocalSkill } from './mirror'
 
 /** Wire projection of one catalog hit. */
@@ -128,9 +129,17 @@ function remoteFailure(error: unknown): RemoteError {
 }
 
 /** Controller options: install facts the config owns. */
+/** Wire projection of one bundled skill's catalog facts. */
+export type ScpHubBuiltinSkillView = {
+  readonly name: string
+  readonly description: string
+}
+
 export interface ScpHubControllerOptions {
   /** Skills install root directory. */
   readonly skillsRoot: string
+  /** Bundled skills root directory shipped with the plugin. */
+  readonly builtinSkillsRoot: string
   /** Skill toolkit unpack bounds. */
   readonly maxToolkitEntries: number
   readonly maxToolkitBytes: number
@@ -256,6 +265,23 @@ export default class ScpHubController extends TypertRemoteService {
     try {
       signal.throwIfAborted()
       await uninstallLocalSkill(this.options.skillsRoot, id)
+    } catch (error) {
+      throw remoteFailure(error)
+    }
+  }
+
+  /**
+   * List the bundled scientific skills shipped with the plugin; enable state
+   * is config-owned and rendered client-side from the settings form.
+   * @param signal - client cancellation.
+   * @returns the shipped skill catalog facts.
+   */
+  @Remote
+  async builtinSkills(signal: AbortSignal): Promise<readonly ScpHubBuiltinSkillView[]> {
+    try {
+      signal.throwIfAborted()
+      const skills = await loadBuiltinSkills(this.options.builtinSkillsRoot)
+      return skills.map(skill => ({ name: skill.name, description: skill.description }))
     } catch (error) {
       throw remoteFailure(error)
     }

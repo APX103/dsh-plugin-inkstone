@@ -92,6 +92,12 @@ export interface ScpHubPanelState {
   readonly skills: readonly LocalSkillRow[]
   /** The open tool picker; null when closed. */
   readonly picker: ToolPickerState | null
+  /** The bundled-skills catalog; empty until first loaded. */
+  readonly builtin: readonly BuiltinSkillRow[]
+  /** Whether the bundled-skills catalog request is in flight. */
+  readonly builtinLoading: boolean
+  /** Names the user switched off, mirrored off the configuration form. */
+  readonly builtinDisabled: readonly string[]
 }
 
 /** Actions and observable state bound by the panel renderer. */
@@ -107,13 +113,21 @@ export interface ScpHubPanelFace {
   closeToolPicker(): void
   setToolPickerPage(page: number): void
   toggleTool(scpId: string, name: string, checked: boolean): Promise<void>
+  loadBuiltinSkills(): Promise<void>
+  setBuiltinEnabled(name: string, enabled: boolean): Promise<void>
   installSkill(id: string): Promise<void>
   removeSkill(id: string): Promise<void>
   setSkillEnabled(id: string, enabled: boolean): Promise<void>
 }
 
+/** One bundled skill row as the Remote namespace reports it. */
+export interface BuiltinSkillRow {
+  readonly name: string
+  readonly description: string
+}
+
 /** Shape of the plugin's `scps`/`skills`/bound fields on the wire. */
-type LocalListsConfig = { scps?: unknown, skills?: unknown, maxSelectedTools?: unknown }
+type LocalListsConfig = { scps?: unknown, skills?: unknown, maxSelectedTools?: unknown, disabledBuiltinSkills?: unknown }
 
 /**
  * Validate one local SCP row off the configuration wire.
@@ -195,6 +209,9 @@ export class ScpHubPanelController {
       scps: [],
       skills: [],
       picker: null,
+      builtin: [],
+      builtinLoading: false,
+      builtinDisabled: [],
     })
     this.#unsubscribe = form.subscribe(() => this.#publishLists())
     this.#publishLists()
@@ -205,7 +222,14 @@ export class ScpHubPanelController {
       ...this.#store.getSnapshot(),
       scps: this.#localScps(),
       skills: this.#localSkills(),
+      builtinDisabled: this.#localBuiltinDisabled(),
     })
+  }
+
+  /** The validated disabled bundled-skill names. */
+  #localBuiltinDisabled(): readonly string[] {
+    const value = this.#form.getSnapshot().value?.disabledBuiltinSkills
+    return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
   }
 
   /** Release form subscriptions. */
@@ -263,6 +287,8 @@ export class ScpHubPanelController {
         this.#store.set({ ...this.#store.getSnapshot(), picker: { ...picker, page: next } })
       },
       toggleTool: (scpId, name, checked) => this.#toggleTool(scpId, name, checked),
+      loadBuiltinSkills: () => this.#loadBuiltinSkills(),
+      setBuiltinEnabled: (name, enabled) => this.#setBuiltinEnabled(name, enabled),
       installSkill: id => this.#mutate(`skill:${id}`, async () => {
         const result = await this.#ctx.remote.scpHub.installSkill(id)
         if (!result.ok) {
@@ -357,6 +383,33 @@ export class ScpHubPanelController {
   #selectedToolBound(): number {
     const value = this.#form.getSnapshot().value?.maxSelectedTools
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 128
+  }
+
+  /** Fetch the bundled-skills catalog once; cached in the store afterwards. */
+  async #loadBuiltinSkills(): Promise<void> {
+    if (this.#store.getSnapshot().builtin.length > 0 || this.#store.getSnapshot().builtinLoading) return
+    this.#store.set({ ...this.#store.getSnapshot(), builtinLoading: true })
+    const result = await this.#ctx.remote.scpHub.builtinSkills()
+    if (!result.ok) {
+      this.#store.set({ ...this.#store.getSnapshot(), builtinLoading: false })
+      this.#fail(result.error)
+      return
+    }
+    this.#store.set({ ...this.#store.getSnapshot(), builtin: result.value, builtinLoading: false })
+  }
+
+  /** Tick one bundled skill by writing the disable list. */
+  async #setBuiltinEnabled(name: string, enabled: boolean): Promise<void> {
+    const snapshot = this.#store.getSnapshot()
+    if (snapshot.mutating !== null) return
+    const next = enabled
+      ? snapshot.builtinDisabled.filter(existing => existing !== name)
+      : [...new Set([...snapshot.builtinDisabled, name])]
+    this.#store.set({ ...snapshot, error: null, builtinDisabled: next })
+    const accepted = await this.#form.set('disabledBuiltinSkills', [...next])
+    if (!accepted) {
+      this.#store.set({ ...this.#store.getSnapshot(), error: 'local list write refused by the host' })
+    }
   }
 
   async #search(type: 'scp' | 'skill', keyword: string): Promise<void> {

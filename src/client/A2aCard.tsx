@@ -25,7 +25,7 @@ function expiryText(expiresAtMs: number): string {
 }
 
 /** The three panels below the sign-in card. */
-type PanelId = 'agents' | 'scps' | 'skills'
+type PanelId = 'agents' | 'scps' | 'skills' | 'builtin'
 
 /**
  * Render the registry sign-in, then the three panels: agent registry, SCP
@@ -113,16 +113,16 @@ export function A2aCard(props: A2aCardProps) {
             )}
       </section>
       <div className={css.tabs} role="tablist" aria-label={t('title')}>
-        {(['agents', 'scps', 'skills'] as const).map(id => (
+        {(['agents', 'scps', 'skills', 'builtin'] as const).map(id => (
           <button
             key={id}
             type="button"
             role="tab"
             className={css.tab}
             aria-selected={active === id}
-            onClick={() => { setActive(id) }}
+            onClick={() => { setActive(id); if (id === 'builtin') { void props.loadBuiltinSkills() } }}
           >
-            {id === 'agents' ? t('tabAgents') : id === 'scps' ? t('tabScps') : t('tabSkills')}
+            {id === 'agents' ? t('tabAgents') : id === 'scps' ? t('tabScps') : id === 'skills' ? t('tabSkills') : t('tabBuiltin')}
           </button>
         ))}
       </div>
@@ -130,7 +130,9 @@ export function A2aCard(props: A2aCardProps) {
         ? <AgentsPanel t={t} face={props} state={state} busy={busy} headingId={headingId} />
         : active === 'scps'
           ? <ScpsPanel t={t} headingId={headingId} panel={panel} face={props} busy={panelBusy} />
-          : <SkillsPanel t={t} headingId={headingId} panel={panel} face={props} busy={panelBusy} />}
+          : active === 'skills'
+            ? <SkillsPanel t={t} headingId={headingId} panel={panel} face={props} busy={panelBusy} />
+            : <BuiltinPanel t={t} panel={panel} face={props} busy={panelBusy} headingId={headingId} />}
     </div>
   )
 }
@@ -307,6 +309,40 @@ function ToolPicker({ t, panel, row, face }: { t: CardLocale, panel: ScpHubPanel
         </Button>
       </div>
     </div>
+  )
+}
+
+/**
+ * The bundled scientific skills panel: the shipped catalog with per-skill
+ * enable switches; everything is on by default.
+ */
+function BuiltinPanel({ t, headingId, panel, face, busy }: { t: CardLocale, headingId: string, panel: ScpHubPanelState, face: Omit<ScpHubPanelFace, 'hooks'>, busy: boolean }): ReactNode {
+  const disabled = new Set(panel.builtinDisabled)
+  return (
+    <section className={css.card} aria-labelledby={`${headingId}-builtin`}>
+      <h3 className={css.cardTitle} id={`${headingId}-builtin`}>{t('builtinTitle')}</h3>
+      <p className={css.hint}>{t('builtinHint')}</p>
+      {panel.builtinLoading && panel.builtin.length === 0
+        ? <p className={css.hint}>{t('loading')}</p>
+        : panel.builtin.length === 0
+          ? <p className={css.hint}>{t('builtinEmpty')}</p>
+          : <ul className={css.rows}>
+            {panel.builtin.map(row => (
+              <li key={row.name} className={css.row}>
+                <div className={css.rowIdentity}>
+                  <span className={css.rowName}>{row.name}</span>
+                  <Tag tone={disabled.has(row.name) ? 'neutral' : 'solid'}>{disabled.has(row.name) ? t('builtinOff') : t('builtinOn')}</Tag>
+                </div>
+                <p className={css.rowDescription} title={row.description}>{row.description}</p>
+                <div className={css.rowActions}>
+                  <Button size="sm" variant="ghost" disabled={busy || panel.mutating !== null} onClick={() => { void face.setBuiltinEnabled(row.name, disabled.has(row.name)) }}>
+                    {disabled.has(row.name) ? t('localEnable') : t('localDisable')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>}
+    </section>
   )
 }
 

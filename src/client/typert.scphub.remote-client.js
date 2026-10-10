@@ -85,6 +85,12 @@ const _scphub_removeSkill_parameter_0$schema = () => (_scphub_removeSkill_parame
 let _scphub_removeSkill_result$schema$value
 const _scphub_removeSkill_result$schema = () => (_scphub_removeSkill_result$schema$value ??= z.void())
 
+let _scphub_builtinSkills_result$schema$value
+const _scphub_builtinSkills_result$schema = () => (_scphub_builtinSkills_result$schema$value ??= z.array(z.object({
+  'name': z.string().readonly(),
+  'description': z.string().readonly(),
+})).readonly())
+
 export const TYPERT_REMOTE = {
   package: 'dsh-plugin-inkstone',
   descriptors: [
@@ -263,6 +269,21 @@ export const TYPERT_REMOTE = {
         create: _scphub_removeSkill_result$schema,
       },
       sourceLocation: { file: 'src/scphub/remote.ts', line: 178, column: 3 },
+    },
+    {
+      id: 'dsh-plugin-inkstone#scpHub/builtinSkills',
+      service: 'scpHubController',
+      namespace: 'scpHub',
+      method: 'builtinSkills',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      cancellation: { parameter: 'signal' },
+      result: {
+        mode: 'strict',
+        typeSymbol: 'dsh-plugin-inkstone#scpHub/builtinSkills:result',
+        create: _scphub_builtinSkills_result$schema,
+      },
+      sourceLocation: { file: 'src/scphub/remote.ts', line: 1, column: 3 },
     },
   ],
 }

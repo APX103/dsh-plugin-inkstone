@@ -1,0 +1,14 @@
+---
+name: indication-dossier
+description: Research a therapeutic indication as a defined patient population and produce an evidence-grounded dossier. Use for epidemiology, biology, standard of care, regulatory precedent, trials, uncertainty, and implications; 适用于适应症研究、患者人群定义、流行病学、疾病生物学、标准治疗、监管与临床试验证据档案。
+---
+
+Produce an evidence-grounded dossier for one therapeutic indication framed as a patient population, not as a loose disease label.
+
+1. Freeze the indication identity, population nesting, geography, time horizon, and intended decision. Ask one focused question only when ambiguity would materially change the evidence set.
+2. Work in resumable phases: epidemiology and burden; disease biology and biomarkers; current standard of care and unmet need; regulatory precedent and active trials; integrated implications. Maintain a compact claim ledger with claim, source identity or URL, source date, population, endpoint or measure, result, evidence class, and uncertainty.
+3. For structured scientific-database evidence, prefer academic MCP tools mounted this turn (names starting with `mcp__`): pick the exact tool, read its schema from the tool description, and use it with the population, date boundary, required named source, and exact fields in the objective. If none is mounted, fall back to `web_search` with scholarly domain filters. An independent multi-step research branch may be delegated to a `subagent` when separate context or parallel work helps. Never silently substitute a different database.
+4. Use `web_search` and `web_fetch` for regulator, guideline, surveillance, registry, and publisher pages that need ordinary web retrieval. Search results are leads, not evidence. Prefer primary studies, registries, regulators, guidelines, and authoritative surveillance sources. Never guess a service, invent a citation, or retry an ambiguous dispatch.
+5. Keep distinctions explicit: incidence versus prevalence, association versus causality, biomarker enrichment versus broad population effect, approved use versus investigation, standard of care versus emerging practice, and peer-reviewed evidence versus preprint. Do not infer a missing denominator or endpoint.
+6. When a required field remains unsupported, record it as missing together with the sources, date boundary, population boundary, and search routes used. Conflicting estimates stay visible and are reconciled by population, geography, period, definition, and method rather than averaged away.
+7. Deliver an executive finding, indication and population definition, evidence sections for every phase, claim-to-source ledger, active uncertainty and missing-evidence list, and concise research or trial implications; write the full dossier as a markdown file in the workspace when a standalone document is requested. This is research synthesis, not patient-specific medical advice.

@@ -99,6 +99,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           closeToolPicker: hub.closeToolPicker,
           setToolPickerPage: hub.setToolPickerPage,
           toggleTool: hub.toggleTool,
+          loadBuiltinSkills: hub.loadBuiltinSkills,
+          setBuiltinEnabled: hub.setBuiltinEnabled,
           installSkill: hub.installSkill,
           removeSkill: hub.removeSkill,
           setSkillEnabled: hub.setSkillEnabled,
