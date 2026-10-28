@@ -292,10 +292,15 @@ function settle(outcome: A2aTurnOutcome, agent: RosterAgent): SubagentResult {
     case 'completed':
       return { output, stopReason: 'completed' }
     case 'input-required':
+      // The harness forbids live children from opening human interaction:
+      // the question surfaces through this result, the parent asks the user
+      // (its native ask_user_question tool when composed), and the
+      // re-delegation continues the SAME remote task via the continuation
+      // ids, so the user never needs to restate the objective.
       return {
         output,
         stopReason: 'completed',
-        diagnostic: `remote A2A agent "${agent.name}" requires more input; delegate again with the answer to continue the same task`,
+        diagnostic: `remote A2A agent "${agent.name}" asked a question (its text is in the output above). Ask the user that question - via ask_user_question when it is composed - then delegate again with the user's answer as the objective; the same remote task continues automatically, so the original objective must not be repeated.`,
       }
     case 'auth-required':
       return { output, diagnostic: `remote A2A agent "${agent.name}" rejected the refreshed ticket`, stopReason: 'error' }
