@@ -73,6 +73,11 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 | `skillsRoot` | `~/.dsh/inkstone/skills` | 目录技能的安装根目录 |
 | `maxToolServers` | `8` | 并发挂载的 SCP 服务上限 |
 | `maxSelectedTools` | `128` | 所有服务合计可注册的选中工具上限 |
+| `enabledAcademicSources` | 全部六源 | 聚合学术检索 `academic_search` 参与的源（arXiv/Crossref/OpenAlex/PubMed/EuropePMC/bioRxiv）；单源 `search_*` 工具始终注册 |
+| `academicMailto` | 空 | Crossref/OpenAlex 礼貌池联系邮箱；留空不携带 |
+| `openalexApiKey` | 空 | OpenAlex 高级账户 `api_key`；免费档用邮箱即可 |
+| `ncbiApiKey` | 空 | NCBI E-utilities API key（PubMed 提额） |
+| `localMcps` | `[]` | 本地通用 MCP 服务器：stdio（command/args/env）或 Streamable HTTP（url/headers），`selectedTools` 勾选后才挂载，`mcp__<name>__*` 命名；设置页面板随后提供 |
 
 ## 包结构
 
