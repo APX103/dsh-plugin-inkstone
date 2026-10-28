@@ -5,12 +5,13 @@ import { useEffect, useId, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { A2aCardFace, A2aCardState, DirectoryRow } from './a2a-card-controller'
+import type { LocalMcpPanelFace, LocalMcpState } from './localmcp-panel-controller'
 import type { LocalScpRow, ScpHubPanelFace, ScpHubPanelState } from './scp-hub-panel-controller'
 import css from './A2aCard.module.css'
 
 /** The merged inject face: registry panel plus SCP Hub panel. */
-export interface InkstoneFace extends Omit<A2aCardFace, 'hooks'>, Omit<ScpHubPanelFace, 'hooks'> {
-  hooks: A2aCardFace['hooks'] & ScpHubPanelFace['hooks']
+export interface InkstoneFace extends Omit<A2aCardFace, 'hooks'>, Omit<ScpHubPanelFace, 'hooks'>, Omit<LocalMcpPanelFace, 'hooks'> {
+  hooks: A2aCardFace['hooks'] & ScpHubPanelFace['hooks'] & LocalMcpPanelFace['hooks']
   /** Panels this section shows; every panel when omitted. */
   readonly panels?: readonly PanelId[]
 }
@@ -27,7 +28,7 @@ function expiryText(expiresAtMs: number): string {
 }
 
 /** The panels below the sign-in card. */
-export type PanelId = 'agents' | 'scps' | 'skills' | 'builtin'
+export type PanelId = 'agents' | 'scps' | 'skills' | 'builtin' | 'localmcp'
 
 /** Every panel, the default when a section omits the list. */
 const ALL_PANELS: readonly PanelId[] = ['agents', 'scps', 'skills', 'builtin']
@@ -48,6 +49,7 @@ export function A2aCard(props: A2aCardProps) {
   const [editing, setEditing] = useState(false)
   const panels = props.panels ?? ALL_PANELS
   const [active, setActive] = useState<PanelId>(panels[0] ?? 'agents')
+  const localMcp = props.useLocalMcpPanel(snapshot => snapshot)
   // The builtin list loads on activation, not only on click: in the Local
   // section it is the initial panel and never receives a click.
   useEffect(() => {
@@ -55,6 +57,7 @@ export function A2aCard(props: A2aCardProps) {
   }, [active])
   const busy = state.busy !== null || state.rosterBusy
   const panelBusy = panel.mutating !== null || panel.searching !== null
+  const localMcpBusy = localMcp.busy
   return (
     <div className={css.section}>
       {state.error !== null ? <p className={css.error} role="alert">{t('errorPrefix')}: {state.error}</p> : null}
@@ -137,7 +140,7 @@ export function A2aCard(props: A2aCardProps) {
             aria-selected={active === id}
             onClick={() => { setActive(id) }}
           >
-            {id === 'agents' ? t('tabAgents') : id === 'scps' ? t('tabScps') : id === 'skills' ? t('tabSkills') : t('tabBuiltin')}
+            {id === 'agents' ? t('tabAgents') : id === 'scps' ? t('tabScps') : id === 'skills' ? t('tabSkills') : id === 'localmcp' ? t('tabLocalMcps') : t('tabBuiltin')}
           </button>
         ))}
       </div>
@@ -147,11 +150,47 @@ export function A2aCard(props: A2aCardProps) {
           ? <ScpsPanel t={t} headingId={headingId} panel={panel} face={props} busy={panelBusy} />
           : active === 'skills'
             ? <SkillsPanel t={t} headingId={headingId} panel={panel} face={props} busy={panelBusy} />
-            : <BuiltinPanel t={t} panel={panel} face={props} busy={panelBusy} headingId={headingId} />}
+            : active === 'localmcp'
+              ? <LocalMcpsPanel t={t} headingId={headingId} panel={localMcp} face={props} busy={localMcpBusy} />
+              : <BuiltinPanel t={t} panel={panel} face={props} busy={panelBusy} headingId={headingId} />}
     </div>
   )
 }
 
+
+/**
+ * The local MCP panel: configured generic servers with their enable state.
+ */
+function LocalMcpsPanel({ t, headingId, panel, face, busy }: { t: CardLocale, headingId: string, panel: LocalMcpState, face: Omit<LocalMcpPanelFace, 'hooks'>, busy: boolean }): ReactNode {
+  return (
+    <section className={css.card} aria-labelledby={`${headingId}-localmcp`}>
+      <h3 className={css.cardTitle} id={`${headingId}-localmcp`}>{t('localMcpsTitle')}</h3>
+      <p className={css.hint}>{t('localMcpsHint')}</p>
+      {panel.status !== 'ready'
+        ? <p className={css.hint}>{panel.status === 'loading' ? t('loading') : t('localMcpsUnavailable')}</p>
+        : panel.servers.length === 0
+          ? <p className={css.hint}>{t('localMcpsEmpty')}</p>
+          : <ul className={css.rows}>
+            {panel.servers.map(row => (
+              <li key={row.id} className={css.row}>
+                <div className={css.rowIdentity}>
+                  <span className={css.rowName}>{row.name}</span>
+                  <Tag tone={row.enabled ? 'solid' : 'neutral'}>{row.toolCount} {t('localMcpsTools')}</Tag>
+                </div>
+                <p className={css.rowDescription} title={row.target}>{row.transport === 'stdio' ? 'stdio' : 'http'} · {row.target}</p>
+                {row.description !== '' ? <p className={css.rowDescription}>{row.description}</p> : null}
+                <div className={css.rowActions}>
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void face.setServerEnabled(row.id, !row.enabled) }}>
+                    {row.enabled ? t('localDisable') : t('localEnable')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>}
+      {panel.error !== null ? <p className={css.error} role="alert">{t('errorPrefix')}: {t('localMcpsRejected')}</p> : null}
+    </section>
+  )
+}
 
 /**
  * The agent registry panel: the directory plus the delegation roster.

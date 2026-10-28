@@ -4,6 +4,8 @@ import { InMemoryTransport } from '@modelcontextprotocol/client'
 import type { Transport } from '@modelcontextprotocol/client'
 import { mountLocalMcp, mountLocalMcpSession } from '../src/localmcp/mount'
 import type { LocalMcp } from '../src/localmcp/mount'
+import { LocalMcpPanelController } from '../src/client/localmcp-panel-controller'
+import type { LocalMcpState } from '../src/client/localmcp-panel-controller'
 
 /** A minimal in-process MCP server answering initialize/tools over memory. */
 function fakeServer(transport: Transport, options: { tools: Array<Record<string, unknown>>, answer?: string }): void {
@@ -118,3 +120,45 @@ describe('mountLocalMcp validation', () => {
     expect(registered).toHaveLength(0)
   })
 })
+
+/** Minimal configuration-form double: ready, writable, synchronous. */
+function formDouble(initial: Record<string, unknown>) {
+  let value = initial
+  const listeners = new Set<() => void>()
+  return {
+    getSnapshot: () => ({ status: 'ready', writable: true, value }),
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    set: async (field: string, next: unknown) => {
+      value = { ...value, [field]: next }
+      for (const listener of listeners) listener()
+      return true
+    },
+  } as never
+}
+
+describe('LocalMcpPanelController', () => {
+  it('publishes validated rows and toggles one server preserving the entry', async () => {
+    const entry = { id: 'a', name: 'fs', transport: 'stdio', command: 'node', args: ['s.js'], enabled: true, selectedTools: ['x', 'y'] }
+    const junk = { name: 5 }
+    const form = formDouble({ localMcps: [entry, junk] })
+    const controller = LocalMcpPanelController(undefined as never, form)
+    const snap = controller.hooks.localMcpPanel.getSnapshot()
+    expect(snap.status).toBe('ready')
+    expect(snap.servers).toHaveLength(1)
+    expect(snap.servers[0]).toMatchObject({ id: 'a', name: 'fs', transport: 'stdio', target: 'node s.js', toolCount: 2, enabled: true })
+    await controller.setServerEnabled('a', false)
+    const after = controller.hooks.localMcpPanel.getSnapshot()
+    expect(after.servers[0]!.enabled).toBe(false)
+    expect(after.error).toBeNull()
+    const stored = (form.getSnapshot().value as { localMcps: Array<Record<string, unknown>> }).localMcps
+    expect(stored).toHaveLength(2)
+    expect(stored[0]).toMatchObject({ id: 'a', enabled: false, command: 'node' })
+    controller.dispose()
+  })
+})
+
+/** Narrow the published state for assertions. */
+export type { LocalMcpState }

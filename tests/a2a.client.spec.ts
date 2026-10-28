@@ -167,8 +167,9 @@ describe('ui-settings-a2a apply', () => {
     const remoteFace = remote()
     expect(typeof remoteFace.refresh).toBe('function')
     expect(remoteFace.panels).toEqual(['agents', 'scps', 'skills'])
-    const localFace = (entries[1]!.inject as () => { panels?: readonly string[] })()
-    expect(localFace.panels).toEqual(['builtin'])
+    const localFace = (entries[1]!.inject as () => { panels?: readonly string[], setServerEnabled?(id: string, enabled: boolean): Promise<void> })()
+    expect(localFace.panels).toEqual(['builtin', 'localmcp'])
+    expect(typeof localFace.setServerEnabled).toBe('function')
     const acadFace = entries[2]!.inject as () => { toggleSource(id: string, enabled: boolean): Promise<void>, hooks: object }
     expect(typeof acadFace().toggleSource).toBe('function')
     const locale = ctx.get('locale') as { bind(ns: string): (key: string) => string }
