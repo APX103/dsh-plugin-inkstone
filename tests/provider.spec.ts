@@ -293,7 +293,8 @@ describe('createA2aProvider', () => {
     const provider = createA2aProvider(ROSTER, headersSource(), continuations, () => agent)
     const first = await (await provider.start(startRequest(undefined, harness.parent))).result
     expect(first.stopReason).toBe('completed')
-    expect(first.diagnostic).toContain('requires more input')
+    expect(first.diagnostic).toContain('ask_user_question')
+    expect(first.diagnostic).toContain('continues automatically')
     expect(continuations.get(PARENT, 'paper-agent')).toEqual({ contextId: 'ctx-9', taskId: 't-9' })
     const second = await (await provider.start(startRequest(undefined, harness.parent))).result
     expect(second.stopReason).toBe('completed')

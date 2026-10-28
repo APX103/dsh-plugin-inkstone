@@ -24,7 +24,8 @@ SCP Hub 的 MCP 服务、安装平台发布的技能。
 - **一次安装、完整集成** —— 设置里出现独立 Tab，`subagent_a2a` 工具自动注册；名单写入 profile
   用户层持久保存，改动即时热重建 provider，无需重启。
 - **Agent Registry** —— 浏览 A2A agent 目录，像原生子代理一样委派远程 agent；registry 的
-  `auth_scheme_type` 直接映射鉴权（SSO 直带 / STS 换票 / 匿名）。
+  `auth_scheme_type` 直接映射鉴权（SSO 直带 / STS 换票 / 匿名）。远程 agent 追问时，问题会回到
+  对话里由你回答，再委派自动续接同一任务，无需复述目标。
 - **SCP Hub 服务** —— 搜索 SCP Hub 目录并添加 MCP 服务；在设置页按工具勾选，只有选中的工具以
   `mcp__<server>__*` 注册，执行面密钥自动处理。
 - **技能安装** —— 目录技能（SKILL.md + toolkit zip）原子解包安装到技能根目录并注册为运行时技能，
