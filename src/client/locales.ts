@@ -86,6 +86,11 @@ export type A2aSettingsLocaleKey =
   | 'sourceArxiv'
   | 'sourceCrossref'
   | 'sourceOpenalex'
+  | 'sourcePubmed'
+  | 'sourceEuropepmc'
+  | 'sourceBiorxiv'
+  | 'acadNcbiKey'
+  | 'acadNcbiKeyHint'
 
 /** English copy. */
 export const en: Record<A2aSettingsLocaleKey, string> = {
@@ -169,6 +174,11 @@ export const en: Record<A2aSettingsLocaleKey, string> = {
   sourceArxiv: 'arXiv (preprints)',
   sourceCrossref: 'Crossref (DOI metadata)',
   sourceOpenalex: 'OpenAlex (scholarly index)',
+  sourcePubmed: 'PubMed (biomedical)',
+  sourceEuropepmc: 'EuropePMC (life sciences)',
+  sourceBiorxiv: 'bioRxiv (biology preprints)',
+  acadNcbiKey: 'NCBI API key (optional)',
+  acadNcbiKeyHint: 'PubMed E-utilities headroom; free without one',
 }
 
 /** Chinese copy. */
@@ -253,4 +263,9 @@ export const zh: Record<A2aSettingsLocaleKey, string> = {
   sourceArxiv: 'arXiv（预印本）',
   sourceCrossref: 'Crossref（DOI 元数据）',
   sourceOpenalex: 'OpenAlex（学术索引）',
+  sourcePubmed: 'PubMed（生物医学）',
+  sourceEuropepmc: 'EuropePMC（生命科学）',
+  sourceBiorxiv: 'bioRxiv（生物预印本）',
+  acadNcbiKey: 'NCBI API Key（可选）',
+  acadNcbiKeyHint: 'PubMed E-utilities 提额；不填也可用',
 }

@@ -9,7 +9,7 @@ import { type SnapshotStore } from '@deepseek-ai/dsh-client-store';
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client';
 import type { Context as ClientContext } from '@deepseek-ai/cordis';
 /** The three bundled open sources, in aggregate order. */
-export declare const ACADEMIC_SOURCE_IDS: readonly ["arxiv", "crossref", "openalex"];
+export declare const ACADEMIC_SOURCE_IDS: readonly ["arxiv", "crossref", "openalex", "pubmed", "europepmc", "biorxiv"];
 /** One academic source as the toggle row renders it. */
 export interface AcademicSourceRow {
     readonly id: (typeof ACADEMIC_SOURCE_IDS)[number];
@@ -29,6 +29,8 @@ export interface AcadSearchState {
     readonly mailto: string;
     /** Current draft OpenAlex premium key (empty sends none). */
     readonly openalexApiKey: string;
+    /** Current draft NCBI API key (empty sends none). */
+    readonly ncbiApiKey: string;
 }
 /** Actions and observable state bound by the slot renderer. */
 export interface AcadSearchFace {
@@ -38,6 +40,7 @@ export interface AcadSearchFace {
     toggleSource(id: (typeof ACADEMIC_SOURCE_IDS)[number], enabled: boolean): Promise<void>;
     setMailto(value: string): Promise<void>;
     setOpenAlexKey(value: string): Promise<void>;
+    setNcbiKey(value: string): Promise<void>;
     saveAcad(): Promise<boolean>;
     dispose(): void;
 }
@@ -46,6 +49,7 @@ type AcadSearchConfig = {
     enabledAcademicSources?: unknown;
     academicMailto?: unknown;
     openalexApiKey?: unknown;
+    ncbiApiKey?: unknown;
 };
 /**
  * Build the card controller over one plugin configuration form.

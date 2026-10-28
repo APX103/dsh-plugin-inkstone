@@ -138,6 +138,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
             toggleSource: acadFace.toggleSource,
             setMailto: acadFace.setMailto,
             setOpenAlexKey: acadFace.setOpenAlexKey,
+            setNcbiKey: acadFace.setNcbiKey,
             saveAcad: acadFace.saveAcad,
           }
         },

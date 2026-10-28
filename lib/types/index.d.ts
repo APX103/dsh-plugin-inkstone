@@ -66,6 +66,8 @@ export interface Config extends DelegationConfig {
     academicMailto: string;
     /** Optional OpenAlex premium key; free tier needs only the mailto. */
     openalexApiKey: string;
+    /** Optional NCBI API key for PubMed E-utilities (10x rate headroom). */
+    ncbiApiKey: string;
 }
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
@@ -124,9 +126,10 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     skillsRoot: z<string, string, "defined">;
     maxToolServers: z<number, number, "defined">;
     maxSelectedTools: z<number, number, "defined">;
-    enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex")[]>, NoInfer<("arxiv" | "crossref" | "openalex")[]>, "volatile-defined">;
+    enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, "volatile-defined">;
     academicMailto: z<string, string, "defined">;
     openalexApiKey: z<string, string, "volatile-defined">;
+    ncbiApiKey: z<string, string, "volatile-defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
     ssoBaseUrl: z<string, string, "defined">;
@@ -184,9 +187,10 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     skillsRoot: z<string, string, "defined">;
     maxToolServers: z<number, number, "defined">;
     maxSelectedTools: z<number, number, "defined">;
-    enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex")[]>, NoInfer<("arxiv" | "crossref" | "openalex")[]>, "volatile-defined">;
+    enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, "volatile-defined">;
     academicMailto: z<string, string, "defined">;
     openalexApiKey: z<string, string, "volatile-defined">;
+    ncbiApiKey: z<string, string, "volatile-defined">;
 }>>, "plain">;
 /**
  * Mount the registry service, the Remote controller, and the delegation mirror.

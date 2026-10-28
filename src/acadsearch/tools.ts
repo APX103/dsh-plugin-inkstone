@@ -10,14 +10,14 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
-import { searchArxiv, searchCrossref, searchOpenAlex, SourceError, withinRecency } from './sources'
+import { searchArxiv, searchBiorxiv, searchCrossref, searchEuropepmc, searchOpenAlex, searchPubmed, SourceError, withinRecency } from './sources'
 import type { PaperHit, Recency, SourceDeps } from './sources'
 
 /** Source ids usable by the aggregate tool. */
 export type AcademicSourceId = PaperHit['source']
 
 /** All known source ids in aggregate order. */
-export const ACADEMIC_SOURCES: readonly AcademicSourceId[] = ['arxiv', 'crossref', 'openalex']
+export const ACADEMIC_SOURCES: readonly AcademicSourceId[] = ['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv']
 
 /** Options for {@link registerAcademicSearchTools}. */
 export interface AcademicSearchOptions extends SourceDeps {
@@ -120,26 +120,36 @@ function outputSchema(): ToolDefinition['output'] {
   } as ToolDefinition['output']
 }
 
+/** Purpose copy per source, mirroring the Inkstone search-tool contract. */
+const SOURCE_LABELS: Record<AcademicSourceId, string> = {
+  arxiv: 'Search arXiv for preprints and frontier research papers. Returns titles, arXiv IDs/links, abstracts, authors, and submission dates.',
+  crossref: 'Search Crossref for academic papers with abstracts and citation metadata. Returns DOIs, abstracts, journal names, and authors.',
+  openalex: 'Search OpenAlex for scholarly works across venues. Returns titles, DOIs, abstracts, venues, authors, and publication dates.',
+  pubmed: 'Search PubMed for biomedical literature via NCBI E-utilities. Returns titles, PMIDs, abstracts, journals, authors, and publication dates.',
+  europepmc: 'Search EuropePMC for life-science literature including PubMed Central full texts. Returns titles, PMIDs/PMCID links, abstracts, journals, and authors.',
+  biorxiv: 'Search bioRxiv for biology preprints (served through the EuropePMC preprint index). Returns titles, DOIs, abstracts, and posting dates.',
+}
+
+/** Source client per id. */
+const SOURCE_RUNNERS: Record<AcademicSourceId, (query: string, count: number, deps: SourceDeps) => Promise<PaperHit[]>> = {
+  arxiv: searchArxiv,
+  crossref: searchCrossref,
+  openalex: searchOpenAlex,
+  pubmed: searchPubmed,
+  europepmc: searchEuropepmc,
+  biorxiv: searchBiorxiv,
+}
+
 /** Build one single-source tool definition. */
 function sourceTool(source: AcademicSourceId, options: AcademicSearchOptions): ToolDefinition {
-  const labels: Record<AcademicSourceId, string> = {
-    arxiv: 'Search arXiv for preprints and frontier research papers. Returns titles, arXiv IDs/links, abstracts, authors, and submission dates.',
-    crossref: 'Search Crossref for academic papers with abstracts and citation metadata. Returns DOIs, abstracts, journal names, and authors.',
-    openalex: 'Search OpenAlex for scholarly works across venues. Returns titles, DOIs, abstracts, venues, authors, and publication dates.',
-  }
-  const runners: Record<AcademicSourceId, (query: string, count: number, deps: SourceDeps) => Promise<PaperHit[]>> = {
-    arxiv: searchArxiv,
-    crossref: searchCrossref,
-    openalex: searchOpenAlex,
-  }
   return {
     name: `search_${source}`,
-    description: labels[source],
+    description: SOURCE_LABELS[source],
     parameters: parametersSchema(false) as ToolDefinition['parameters'],
     output: outputSchema(),
     async execute(args: unknown, exec: ToolExecution) {
       const { query, count, recency } = parseArgs(args)
-      const hits = await runners[source](query, count, options)
+      const hits = await SOURCE_RUNNERS[source](query, count, options)
       const filtered = hits.filter(hit => withinRecency(hit, recency))
       void exec
       return { hits: filtered } satisfies AcademicSearchResult
@@ -161,19 +171,14 @@ function aggregateTool(options: AcademicSearchOptions): ToolDefinition {
   const order = ACADEMIC_SOURCES.filter(source => options.enabledSources.includes(source))
   return {
     name: 'academic_search',
-    description: 'Search academic papers across arXiv, Crossref, and OpenAlex. Returns paper titles, DOIs, abstracts, venues, and publication dates. Use for scholarly research, literature review, and citation lookup.',
+    description: 'Search academic papers across arXiv, Crossref, OpenAlex, PubMed, EuropePMC, and bioRxiv. Returns paper titles, DOIs/PMIDs, abstracts, venues, and publication dates. Use for scholarly research, literature review, and citation lookup.',
     parameters: parametersSchema(true) as ToolDefinition['parameters'],
     output: outputSchema(),
     async execute(args: unknown, exec: ToolExecution) {
       const { query, count, recency } = parseArgs(args)
       const settled = await Promise.all(order.map(async source => {
-        const runners: Record<AcademicSourceId, (query: string, count: number, deps: SourceDeps) => Promise<PaperHit[]>> = {
-          arxiv: searchArxiv,
-          crossref: searchCrossref,
-          openalex: searchOpenAlex,
-        }
         try {
-          return { source, hits: await runners[source](query, count, options) }
+          return { source, hits: await SOURCE_RUNNERS[source](query, count, options) }
         } catch (error: unknown) {
           const reason = error instanceof SourceError ? error.message : `${source}: query failed`
           return { source, hits: [], error: reason }

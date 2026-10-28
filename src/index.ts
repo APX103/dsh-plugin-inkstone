@@ -86,6 +86,8 @@ export interface Config extends DelegationConfig {
   academicMailto: string
   /** Optional OpenAlex premium key; free tier needs only the mailto. */
   openalexApiKey: string
+  /** Optional NCBI API key for PubMed E-utilities (10x rate headroom). */
+  ncbiApiKey: string
 }
 
 const agentSchema = z.object({
@@ -130,9 +132,10 @@ export const Config = z.object({
   skillsRoot: z.string().default(defaultSkillsRoot()),
   maxToolServers: z.number().step(1).min(1).max(32).default(8),
   maxSelectedTools: z.number().step(1).min(1).max(1024).default(128),
-  enabledAcademicSources: z.array(z.union(['arxiv', 'crossref', 'openalex'] as const)).volatile().default(['arxiv', 'crossref', 'openalex']),
+  enabledAcademicSources: z.array(z.union(['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv'] as const)).volatile().default(['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv']),
   academicMailto: z.string().default(''),
   openalexApiKey: z.string().volatile().default(''),
+  ncbiApiKey: z.string().volatile().default(''),
 })
 
 /**
@@ -224,6 +227,7 @@ export function apply(ctx: Context, config: Config): void {
           fetchImpl: fetch,
           ...(config.academicMailto !== '' ? { mailto: config.academicMailto } : {}),
           ...(config.openalexApiKey !== '' ? { openalexApiKey: config.openalexApiKey } : {}),
+          ...(config.ncbiApiKey !== '' ? { ncbiApiKey: config.ncbiApiKey } : {}),
         })
       }
       rebuild()
