@@ -64,6 +64,8 @@ export interface Config extends DelegationConfig {
     enabledAcademicSources: Volatile<string[]>;
     /** Polite-pool contact for Crossref/OpenAlex; empty sends none. */
     academicMailto: string;
+    /** Optional OpenAlex premium key; free tier needs only the mailto. */
+    openalexApiKey: string;
 }
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
@@ -124,6 +126,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     maxSelectedTools: z<number, number, "defined">;
     enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex")[]>, NoInfer<("arxiv" | "crossref" | "openalex")[]>, "volatile-defined">;
     academicMailto: z<string, string, "defined">;
+    openalexApiKey: z<string, string, "volatile-defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
     ssoBaseUrl: z<string, string, "defined">;
@@ -183,6 +186,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     maxSelectedTools: z<number, number, "defined">;
     enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex")[]>, NoInfer<("arxiv" | "crossref" | "openalex")[]>, "volatile-defined">;
     academicMailto: z<string, string, "defined">;
+    openalexApiKey: z<string, string, "volatile-defined">;
 }>>, "plain">;
 /**
  * Mount the registry service, the Remote controller, and the delegation mirror.

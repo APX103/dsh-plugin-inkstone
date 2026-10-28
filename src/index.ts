@@ -84,6 +84,8 @@ export interface Config extends DelegationConfig {
   enabledAcademicSources: Volatile<string[]>
   /** Polite-pool contact for Crossref/OpenAlex; empty sends none. */
   academicMailto: string
+  /** Optional OpenAlex premium key; free tier needs only the mailto. */
+  openalexApiKey: string
 }
 
 const agentSchema = z.object({
@@ -130,6 +132,7 @@ export const Config = z.object({
   maxSelectedTools: z.number().step(1).min(1).max(1024).default(128),
   enabledAcademicSources: z.array(z.union(['arxiv', 'crossref', 'openalex'] as const)).volatile().default(['arxiv', 'crossref', 'openalex']),
   academicMailto: z.string().default(''),
+  openalexApiKey: z.string().volatile().default(''),
 })
 
 /**
@@ -220,6 +223,7 @@ export function apply(ctx: Context, config: Config): void {
           enabledSources: enabled,
           fetchImpl: fetch,
           ...(config.academicMailto !== '' ? { mailto: config.academicMailto } : {}),
+          ...(config.openalexApiKey !== '' ? { openalexApiKey: config.openalexApiKey } : {}),
         })
       }
       rebuild()

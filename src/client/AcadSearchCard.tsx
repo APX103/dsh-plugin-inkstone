@@ -20,8 +20,10 @@ export interface AcadSearchSlotFace {
   toggleSource(id: 'arxiv' | 'crossref' | 'openalex', enabled: boolean): Promise<void>
   /** Update the draft mailto. */
   setMailto(value: string): void
-  /** Commit the draft mailto; resolves false when the Host refused. */
-  saveMailto(): Promise<boolean>
+  /** Update the draft OpenAlex premium key. */
+  setOpenAlexKey(value: string): void
+  /** Commit mailto and key; resolves false when the Host refused. */
+  saveAcad(): Promise<boolean>
 }
 
 /** Framework-derived props for the academic search settings section. */
@@ -78,7 +80,7 @@ export function AcadSearchCard(props: AcadSearchCardProps): ReactNode {
                   className={css.fields}
                   onSubmit={event => {
                     event.preventDefault()
-                    void props.saveMailto().then(ok => { setSaved(ok) })
+                    void props.saveAcad().then(ok => { setSaved(ok) })
                   }}
                 >
                   <label className={css.field}>
@@ -89,6 +91,16 @@ export function AcadSearchCard(props: AcadSearchCardProps): ReactNode {
                       placeholder={t('acadMailtoHint')}
                       autoComplete="off"
                       type="email"
+                    />
+                  </label>
+                  <label className={css.field}>
+                    <span>{t('acadOpenAlexKey')}</span>
+                    <Input
+                      value={state.openalexApiKey}
+                      onChange={(event) => { props.setOpenAlexKey(event.target.value) }}
+                      placeholder={t('acadOpenAlexKeyHint')}
+                      autoComplete="off"
+                      type="password"
                     />
                   </label>
                   <div className={css.fieldActions}>

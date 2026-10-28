@@ -137,7 +137,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
             hooks: { acadSearch: acadFace.hooks.acadSearch },
             toggleSource: acadFace.toggleSource,
             setMailto: acadFace.setMailto,
-            saveMailto: acadFace.saveMailto,
+            setOpenAlexKey: acadFace.setOpenAlexKey,
+            saveAcad: acadFace.saveAcad,
           }
         },
       }, AcadSearchCard))

@@ -94,6 +94,41 @@ describe('academic sources', () => {
     expect(hits[0]!.url).toBe('https://openalex.org/W1')
   })
 
+  it('retries once after a 429 and sends api_key and mailto to OpenAlex', async () => {
+    const urls: string[] = []
+    let attempts = 0
+    const deps: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => {
+        urls.push(String(input))
+        attempts += 1
+        if (attempts === 1) return new Response('slow down', { status: 429, headers: { 'retry-after': '0' } })
+        return jsonResponse({ results: [{ id: 'https://openalex.org/W2', display_name: 'Retry works', publication_date: '2024-04-01' }] })
+      }) as unknown as typeof fetch,
+      mailto: 'team@example.org',
+      openalexApiKey: 'premium-key',
+    }
+    const hits = await searchOpenAlex('reefs', 3, deps)
+    expect(attempts).toBe(2)
+    expect(hits).toHaveLength(1)
+    const url = new URL(urls[1]!)
+    expect(url.searchParams.get('api_key')).toBe('premium-key')
+    expect(url.searchParams.get('mailto')).toBe('team@example.org')
+  })
+
+  it('retries arXiv once after a 429', async () => {
+    let attempts = 0
+    const deps: SourceDeps = {
+      fetchImpl: (async () => {
+        attempts += 1
+        if (attempts === 1) return new Response('slow down', { status: 429 })
+        return new Response(ARXIV_ATOM)
+      }) as unknown as typeof fetch,
+    }
+    const hits = await searchArxiv('reefs', 5, deps)
+    expect(attempts).toBe(2)
+    expect(hits).toHaveLength(2)
+  })
+
   it('drops undated and out-of-window hits under recency', () => {
     const now = new Date('2024-06-15T12:00:00Z')
     const dated = { published: '2024-06-10' } as const

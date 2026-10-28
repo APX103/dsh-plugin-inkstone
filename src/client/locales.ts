@@ -77,6 +77,8 @@ export type A2aSettingsLocaleKey =
   | 'acadSources'
   | 'acadMailto'
   | 'acadMailtoHint'
+  | 'acadOpenAlexKey'
+  | 'acadOpenAlexKeyHint'
   | 'acadSave'
   | 'acadSaved'
   | 'acadRejected'
@@ -158,6 +160,8 @@ export const en: Record<A2aSettingsLocaleKey, string> = {
   acadSources: 'Aggregate sources',
   acadMailto: 'Contact email (optional)',
   acadMailtoHint: 'Enters the Crossref/OpenAlex polite pool; left empty sends none',
+  acadOpenAlexKey: 'OpenAlex API key (optional)',
+  acadOpenAlexKeyHint: 'Premium accounts only; free tier uses the contact email',
   acadSave: 'Save',
   acadSaved: 'Saved',
   acadRejected: 'The change was not accepted — reopen this page and try again.',
@@ -240,6 +244,8 @@ export const zh: Record<A2aSettingsLocaleKey, string> = {
   acadSources: '聚合源',
   acadMailto: '联系邮箱（可选）',
   acadMailtoHint: '进入 Crossref/OpenAlex 礼貌池；留空则不携带',
+  acadOpenAlexKey: 'OpenAlex API Key（可选）',
+  acadOpenAlexKeyHint: '仅高级账户需要；免费档填联系邮箱即可',
   acadSave: '保存',
   acadSaved: '已保存',
   acadRejected: '修改未被接受——请重新打开本页再试。',
