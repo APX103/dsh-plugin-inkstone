@@ -17,12 +17,14 @@ import type { AcadSearchState } from './acadsearch-card-controller'
 export interface AcadSearchSlotFace {
   hooks: { acadSearch: import('@deepseek-ai/dsh-client-store').SnapshotStore<AcadSearchState> }
   /** Toggle one aggregate source. */
-  toggleSource(id: 'arxiv' | 'crossref' | 'openalex', enabled: boolean): Promise<void>
+  toggleSource(id: 'arxiv' | 'crossref' | 'openalex' | 'pubmed' | 'europepmc' | 'biorxiv', enabled: boolean): Promise<void>
   /** Update the draft mailto. */
   setMailto(value: string): void
   /** Update the draft OpenAlex premium key. */
   setOpenAlexKey(value: string): void
-  /** Commit mailto and key; resolves false when the Host refused. */
+  /** Update the draft NCBI API key. */
+  setNcbiKey(value: string): void
+  /** Commit mailto and keys; resolves false when the Host refused. */
   saveAcad(): Promise<boolean>
 }
 
@@ -32,9 +34,16 @@ export type AcadSearchCardProps = PropsRuntime<'settings.section'>
 
 type AcadLocale = AcadSearchCardProps['t']
 
-/** Labels for the three bundled sources. */
-function sourceLabel(t: AcadLocale, id: 'arxiv' | 'crossref' | 'openalex'): string {
-  return id === 'arxiv' ? t('sourceArxiv') : id === 'crossref' ? t('sourceCrossref') : t('sourceOpenalex')
+/** Labels for the bundled sources. */
+function sourceLabel(t: AcadLocale, id: 'arxiv' | 'crossref' | 'openalex' | 'pubmed' | 'europepmc' | 'biorxiv'): string {
+  switch (id) {
+    case 'arxiv': return t('sourceArxiv')
+    case 'crossref': return t('sourceCrossref')
+    case 'openalex': return t('sourceOpenalex')
+    case 'pubmed': return t('sourcePubmed')
+    case 'europepmc': return t('sourceEuropepmc')
+    default: return t('sourceBiorxiv')
+  }
 }
 
 /**
@@ -99,6 +108,16 @@ export function AcadSearchCard(props: AcadSearchCardProps): ReactNode {
                       value={state.openalexApiKey}
                       onChange={(event) => { props.setOpenAlexKey(event.target.value) }}
                       placeholder={t('acadOpenAlexKeyHint')}
+                      autoComplete="off"
+                      type="password"
+                    />
+                  </label>
+                  <label className={css.field}>
+                    <span>{t('acadNcbiKey')}</span>
+                    <Input
+                      value={state.ncbiApiKey}
+                      onChange={(event) => { props.setNcbiKey(event.target.value) }}
+                      placeholder={t('acadNcbiKeyHint')}
                       autoComplete="off"
                       type="password"
                     />

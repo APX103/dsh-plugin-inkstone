@@ -184,7 +184,7 @@ describe('plugin apply with an empty roster', () => {
     expect(empty.captured.tools.has('subagent_a2a')).toBe(false)
     expect(empty.captured.providers).toEqual([])
     expect(empty.captured.tools.has('academic_search')).toBe(true)
-    expect(empty.captured.tools.size).toBe(4)
+    expect(empty.captured.tools.size).toBe(7)
     await empty.fiber.dispose()
   })
 })

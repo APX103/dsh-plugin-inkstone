@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { registerAcademicSearchTools } from '../src/acadsearch/tools'
 import type { AcademicSearchResult } from '../src/acadsearch/tools'
-import { searchArxiv, searchCrossref, searchOpenAlex, SourceError, withinRecency } from '../src/acadsearch/sources'
+import { searchArxiv, searchBiorxiv, searchCrossref, searchEuropepmc, searchOpenAlex, searchPubmed, SourceError, withinRecency } from '../src/acadsearch/sources'
 import type { SourceDeps } from '../src/acadsearch/sources'
 
 const DEPS: SourceDeps = { fetchImpl: async () => { throw new Error('network disabled in this fixture') } }
@@ -94,6 +94,85 @@ describe('academic sources', () => {
     expect(hits[0]!.url).toBe('https://openalex.org/W1')
   })
 
+  it('searches PubMed through esearch+efetch with the optional NCBI key', async () => {
+    const urls: string[] = []
+    const esearch = { esearchresult: { idlist: ['39001234', '39005678'] } }
+    const efetch = `<?xml version="1.0"?><PubmedArticleSet>
+<PubmedArticle><MedlineCitation><PMID>39001234</PMID><Article>
+<Journal><Title>Marine Biology</Title></Journal>
+<ArticleTitle>Reef recovery <i>after</i> bleaching</ArticleTitle>
+<Abstract><AbstractText>Oceans recover slowly.</AbstractText><AbstractText Label="2">Second part.</AbstractText></Abstract>
+<JournalInfo><MedlineDate>2024 Feb-Mar</MedlineDate></JournalInfo>
+<DateCompleted><Year>2024</Year><Month>Feb</Month><Day>9</Day></DateCompleted>
+<AuthorList><Author><LastName>Chen</LastName><ForeName>Alice</ForeName></Author></AuthorList>
+<ELocationID EIdType="doi" ValidYN="Y">10.1000/pubs.1</ELocationID>
+</Article></MedlineCitation></PubmedArticle>
+<PubmedArticle><MedlineCitation><PMID>39005678</PMID><Article><ArticleTitle>Second study</ArticleTitle></Article></MedlineCitation></PubmedArticle>
+</PubmedArticleSet>`
+    const deps: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => {
+        const url = String(input)
+        urls.push(url)
+        if (url.includes('esearch')) return jsonResponse(esearch)
+        return new Response(efetch)
+      }) as unknown as typeof fetch,
+      ncbiApiKey: 'ncbi-key-1',
+    }
+    const hits = await searchPubmed('reef recovery', 5, deps)
+    expect(urls[0]).toContain('api_key=ncbi-key-1')
+    expect(urls[0]).toContain('term=reef+recovery')
+    expect(hits).toHaveLength(2)
+    expect(hits[0]!.title).toBe('Reef recovery after bleaching')
+    expect(hits[0]!.abstract).toBe('Oceans recover slowly. Second part.')
+    expect(hits[0]!.doi).toBe('10.1000/pubs.1')
+    expect(hits[0]!.published).toBe('2024-02-09')
+    expect(hits[0]!.venue).toBe('Marine Biology')
+    expect(hits[0]!.authors).toEqual(['Alice Chen'])
+    expect(hits[0]!.url).toBe('https://pubmed.ncbi.nlm.nih.gov/39001234/')
+  })
+
+  it('maps EuropePMC records including PMID links and author strings', async () => {
+    const deps: SourceDeps = {
+      fetchImpl: (async () => jsonResponse({ resultList: { result: [{
+        pmid: '39001234',
+        title: 'PMC full text study',
+        authorString: 'A One, B Two',
+        journalTitle: 'Life Sci',
+        firstPublicationDate: '2024-03-03',
+        doi: '10.3000/epmc.1',
+        abstractText: 'Full text abstract.',
+      }] } })) as unknown as typeof fetch,
+    }
+    const hits = await searchEuropepmc('reefs', 5, deps)
+    expect(hits).toHaveLength(1)
+    expect(hits[0]!.source).toBe('europepmc')
+    expect(hits[0]!.authors).toEqual(['A One', 'B Two'])
+    expect(hits[0]!.url).toBe('https://pubmed.ncbi.nlm.nih.gov/39001234/')
+    expect(hits[0]!.published).toBe('2024-03-03')
+  })
+
+  it('searches bioRxiv through the EuropePMC preprint index with the source filter', async () => {
+    const urls: string[] = []
+    const deps: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => {
+        urls.push(String(input))
+        return jsonResponse({ resultList: { result: [{
+          id: '2024.01.01.000001',
+          title: 'bioRxiv preprint',
+          doi: '10.1101/2024.01.01.000001',
+          pubYear: '2024',
+          abstractText: 'Preprint abstract.',
+        }] } })
+      }) as unknown as typeof fetch,
+    }
+    const hits = await searchBiorxiv('crispr', 5, deps)
+    expect(urls[0]).toContain('SRC%3APPR')
+    expect(hits).toHaveLength(1)
+    expect(hits[0]!.source).toBe('biorxiv')
+    expect(hits[0]!.url).toBe('https://www.biorxiv.org/content/10.1101/2024.01.01.000001')
+    expect(hits[0]!.published).toBe('2024-01-01')
+  })
+
   it('retries once after a 429 and sends api_key and mailto to OpenAlex', async () => {
     const urls: string[] = []
     let attempts = 0
@@ -168,10 +247,12 @@ describe('registerAcademicSearchTools', () => {
     return { ctx: ctx as unknown as Context, registered }
   }
 
-  it('registers one aggregate plus three single-source tools', () => {
+  it('registers one aggregate plus six single-source tools', () => {
     const { ctx, registered } = fakeCtx()
-    const dispose = registerAcademicSearchTools(ctx, { enabledSources: ['arxiv', 'crossref', 'openalex'], fetchImpl: DEPS.fetchImpl })
-    expect(registered.map(definition => definition.name).sort()).toEqual(['academic_search', 'search_arxiv', 'search_crossref', 'search_openalex'])
+    const dispose = registerAcademicSearchTools(ctx, { enabledSources: ['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv'], fetchImpl: DEPS.fetchImpl })
+    expect(registered.map(definition => definition.name).sort()).toEqual([
+      'academic_search', 'search_arxiv', 'search_biorxiv', 'search_crossref', 'search_europepmc', 'search_openalex', 'search_pubmed',
+    ])
     dispose()
   })
 

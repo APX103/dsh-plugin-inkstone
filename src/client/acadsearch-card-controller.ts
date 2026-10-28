@@ -11,7 +11,7 @@ import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 
 /** The three bundled open sources, in aggregate order. */
-export const ACADEMIC_SOURCE_IDS = ['arxiv', 'crossref', 'openalex'] as const
+export const ACADEMIC_SOURCE_IDS = ['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv'] as const
 
 /** One academic source as the toggle row renders it. */
 export interface AcademicSourceRow {
@@ -33,6 +33,8 @@ export interface AcadSearchState {
   readonly mailto: string
   /** Current draft OpenAlex premium key (empty sends none). */
   readonly openalexApiKey: string
+  /** Current draft NCBI API key (empty sends none). */
+  readonly ncbiApiKey: string
 }
 
 /** Actions and observable state bound by the slot renderer. */
@@ -43,18 +45,20 @@ export interface AcadSearchFace {
   toggleSource(id: (typeof ACADEMIC_SOURCE_IDS)[number], enabled: boolean): Promise<void>
   setMailto(value: string): Promise<void>
   setOpenAlexKey(value: string): Promise<void>
+  setNcbiKey(value: string): Promise<void>
   saveAcad(): Promise<boolean>
   dispose(): void
 }
 
 /** Shape of the acadsearch configuration fields on the wire. */
-type AcadSearchConfig = { enabledAcademicSources?: unknown, academicMailto?: unknown, openalexApiKey?: unknown }
+type AcadSearchConfig = { enabledAcademicSources?: unknown, academicMailto?: unknown, openalexApiKey?: unknown, ncbiApiKey?: unknown }
 
 /** Draft state one controller edits before an accepted write. */
 interface Draft {
   readonly sources: readonly AcademicSourceRow[]
   readonly mailto: string
   readonly openalexApiKey: string
+  readonly ncbiApiKey: string
 }
 
 /**
@@ -71,8 +75,9 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
     sources: ACADEMIC_SOURCE_IDS.map(id => ({ id, enabled: true })),
     mailto: '',
     openalexApiKey: '',
+    ncbiApiKey: '',
   })
-  let draft: Draft = { sources: store.getSnapshot().sources, mailto: '', openalexApiKey: '' }
+  let draft: Draft = { sources: store.getSnapshot().sources, mailto: '', openalexApiKey: '', ncbiApiKey: '' }
 
   const readDraft = (): Draft => {
     const snapshot = form.getSnapshot()
@@ -86,6 +91,7 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
       sources: ACADEMIC_SOURCE_IDS.map(id => ({ id, enabled: enabled.includes(id) })),
       mailto: typeof raw.academicMailto === 'string' ? raw.academicMailto : '',
       openalexApiKey: typeof raw.openalexApiKey === 'string' ? raw.openalexApiKey : '',
+      ncbiApiKey: typeof raw.ncbiApiKey === 'string' ? raw.ncbiApiKey : '',
     }
   }
 
@@ -131,12 +137,17 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
       draft = { ...draft, openalexApiKey: value }
       publish(null)
     },
+    async setNcbiKey(value) {
+      draft = { ...draft, ncbiApiKey: value }
+      publish(null)
+    },
     async saveAcad() {
       const current = form.getSnapshot()
       if (current.status !== 'ready' || !current.writable) return false
       publish(null, true)
       const accepted = await form.set('academicMailto', draft.mailto.trim())
         && await form.set('openalexApiKey', draft.openalexApiKey.trim())
+        && await form.set('ncbiApiKey', draft.ncbiApiKey.trim())
       if (!accepted) {
         draft = readDraft()
         publish('rejected')

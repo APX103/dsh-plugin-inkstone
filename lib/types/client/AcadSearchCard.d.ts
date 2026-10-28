@@ -14,12 +14,14 @@ export interface AcadSearchSlotFace {
         acadSearch: import('@deepseek-ai/dsh-client-store').SnapshotStore<AcadSearchState>;
     };
     /** Toggle one aggregate source. */
-    toggleSource(id: 'arxiv' | 'crossref' | 'openalex', enabled: boolean): Promise<void>;
+    toggleSource(id: 'arxiv' | 'crossref' | 'openalex' | 'pubmed' | 'europepmc' | 'biorxiv', enabled: boolean): Promise<void>;
     /** Update the draft mailto. */
     setMailto(value: string): void;
     /** Update the draft OpenAlex premium key. */
     setOpenAlexKey(value: string): void;
-    /** Commit mailto and key; resolves false when the Host refused. */
+    /** Update the draft NCBI API key. */
+    setNcbiKey(value: string): void;
+    /** Commit mailto and keys; resolves false when the Host refused. */
     saveAcad(): Promise<boolean>;
 }
 /** Framework-derived props for the academic search settings section. */

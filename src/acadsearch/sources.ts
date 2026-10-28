@@ -10,7 +10,7 @@
 /** One normalized paper hit shared by every source and the aggregate tool. */
 export interface PaperHit {
   /** Source id that produced the hit. */
-  readonly source: 'arxiv' | 'crossref' | 'openalex'
+  readonly source: 'arxiv' | 'crossref' | 'openalex' | 'pubmed' | 'europepmc' | 'biorxiv'
   /** Paper title. */
   readonly title: string
   /** Authors, best effort. */
@@ -41,6 +41,8 @@ export interface SourceDeps {
   readonly mailto?: string | undefined
   /** Optional OpenAlex premium key sent as api_key; free tier uses mailto only. */
   readonly openalexApiKey?: string | undefined
+  /** Optional NCBI API key appended to E-utilities calls (10x rate headroom). */
+  readonly ncbiApiKey?: string | undefined
 }
 
 /** One shared-IP 429 gets a single spaced retry before the failure surfaces. */
@@ -81,7 +83,8 @@ function xmlText(value: string): string {
 
 /** First-level text of one tag inside a fragment (no nested same-name tags). */
 function tagText(fragment: string, tag: string): string {
-  const match = fragment.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`))
+  const pattern = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`)
+  const match = fragment.match(pattern)
   return match === null ? '' : xmlText(match[1]!)
 }
 
@@ -90,6 +93,169 @@ function normalizeDate(value: string | undefined | null): string | undefined {
   if (value === undefined || value === null || value === '') return undefined
   const match = value.match(/(\d{4})-(\d{2})-(\d{2})/)
   return match === null ? undefined : `${match[1]}-${match[2]}-${match[3]}`
+}
+
+/** First XML tag text inside one PubMed article fragment. */
+function xmlTag(fragment: string, tag: string): string {
+  const pattern = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`)
+  const match = fragment.match(pattern)
+  return match === null ? '' : xmlText(match[1]!)
+}
+
+/** Concatenate every PubMed abstract text segment (structured abstracts split). */
+function pubmedAbstract(fragment: string): string {
+  const parts = [...fragment.matchAll(/<AbstractText(?:\s[^>]*)?>([\s\S]*?)<\/AbstractText>/g)]
+    .map(match => xmlText(match[1]!))
+  return parts.join(' ')
+}
+
+/** PubMed date parts → ISO date; falls back to MedlineDate's year. */
+function pubmedDate(fragment: string): string | undefined {
+  const year = xmlTag(fragment, 'Year')
+  const month = xmlTag(fragment, 'Month')
+  const day = xmlTag(fragment, 'Day')
+  if (year !== '') {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const monthIndex = months.indexOf(month.slice(0, 3)) + 1
+    return `${year}-${String(monthIndex > 0 ? monthIndex : 1).padStart(2, '0')}-${(day === '' ? '01' : day).padStart(2, '0')}`
+  }
+  const medline = xmlTag(fragment, 'MedlineDate')
+  const yearMatch = medline.match(/(\d{4})/)
+  return yearMatch === null ? undefined : `${yearMatch[1]}-01-01`
+}
+
+/** Run one E-utilities call with the optional NCBI api_key. */
+async function eutils(path: string, params: Record<string, string>, deps: SourceDeps): Promise<unknown> {
+  const url = new URL(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/${path}`)
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+  if (deps.ncbiApiKey !== undefined && deps.ncbiApiKey !== '') url.searchParams.set('api_key', deps.ncbiApiKey)
+  const response = await fetchWith429Retry(url, deps)
+  if (!response.ok) throw new SourceError('pubmed', `HTTP ${response.status}`)
+  return response.json() as Promise<unknown>
+}
+
+/**
+ * Search PubMed via E-utilities: esearch for PMIDs, then efetch for the
+ * article XML (title, abstract, journal, date, authors, DOI).
+ * @param query - free-text PubMed query (full E-utilities term syntax).
+ * @param count - requested result count.
+ * @param deps - fetch dependencies (api_key when configured).
+ * @returns normalized hits sorted by the server's date ranking.
+ */
+export async function searchPubmed(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]> {
+  const search = await eutils('esearch.fcgi', {
+    db: 'pubmed',
+    term: query,
+    retmax: String(count),
+    retmode: 'json',
+    sort: 'date',
+  }, deps)
+  const ids = ((search as { esearchresult?: { idlist?: string[] } }).esearchresult?.idlist ?? [])
+  if (ids.length === 0) return []
+  const url = new URL('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi')
+  url.searchParams.set('db', 'pubmed')
+  url.searchParams.set('id', ids.join(','))
+  url.searchParams.set('retmode', 'xml')
+  if (deps.ncbiApiKey !== undefined && deps.ncbiApiKey !== '') url.searchParams.set('api_key', deps.ncbiApiKey)
+  const response = await fetchWith429Retry(url, deps)
+  if (!response.ok) throw new SourceError('pubmed', `HTTP ${response.status}`)
+  const xml = await response.text()
+  const hits: PaperHit[] = []
+  for (const block of xml.split('<PubmedArticle>').slice(1)) {
+    const fragment = block.split('</PubmedArticle>')[0] ?? ''
+    const pmid = xmlTag(fragment, 'PMID')
+    if (pmid === '') continue
+    const title = xmlTag(fragment, 'ArticleTitle')
+    const doiMatch = fragment.match(/<(?:ArticleId|ELocationID)\s+(?:Id|EId)Type="doi"[^>]*>([\s\S]*?)<\//)
+    const authors = [...fragment.matchAll(/<Author(?:\s[^>]*)?>[\s\S]*?<LastName>([\s\S]*?)<\/LastName>[\s\S]*?(?:<ForeName>([\s\S]*?)<\/ForeName>)?[\s\S]*?<\/Author>/g)]
+      .map(match => [xmlText(match[2] ?? ''), xmlText(match[1]!)].filter(Boolean).join(' '))
+    hits.push({
+      source: 'pubmed',
+      title: stripMarkup(title),
+      authors,
+      doi: normalizeDoi(doiMatch === null ? undefined : xmlText(doiMatch[1]!)),
+      url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+      abstract: stripMarkup(pubmedAbstract(fragment)),
+      published: pubmedDate(fragment),
+      venue: xmlTag(fragment, 'Journal') !== '' ? xmlTag(fragment, 'Title') : undefined,
+    })
+  }
+  return hits
+}
+
+/** EuropePMC result record (fields this client consumes). */
+interface EuropePmcResult {
+  id?: string
+  pmid?: string
+  pmcid?: string
+  title?: string
+  authorString?: string
+  journalTitle?: string
+  pubYear?: string
+  doi?: string
+  abstractText?: string
+  firstPublicationDate?: string
+  source?: string
+}
+
+/** Map one EuropePMC record onto a normalized hit. */
+function europepmcHit(record: EuropePmcResult, source: PaperHit['source']): PaperHit {
+  const year = record.pubYear ?? record.firstPublicationDate?.slice(0, 4) ?? ''
+  const date = record.firstPublicationDate ?? (year !== '' ? `${year}-01-01` : undefined)
+  const pmcid = record.pmcid ?? ''
+  const url = source === 'biorxiv'
+    ? `https://www.biorxiv.org/content/${record.doi !== undefined && record.doi !== '' ? record.doi : `10.1101/${record.id ?? ''}`}`
+    : record.pmid !== undefined && record.pmid !== ''
+      ? `https://pubmed.ncbi.nlm.nih.gov/${record.pmid}/`
+      : pmcid !== '' ? `https://europepmc.org/article/${pmcid}` : `https://europepmc.org/search?query=${encodeURIComponent(record.id ?? '')}`
+  return {
+    source,
+    title: record.title ?? '',
+    authors: (record.authorString ?? '').split(', ').filter(Boolean),
+    doi: normalizeDoi(record.doi),
+    url,
+    abstract: record.abstractText ?? '',
+    published: normalizeDate(date),
+    venue: record.journalTitle ?? undefined,
+  }
+}
+
+/**
+ * Search EuropePMC (includes PubMed Central full texts and preprints).
+ * @param query - free-text query (EuropePMC query syntax).
+ * @param count - requested page size.
+ * @param deps - fetch dependencies.
+ * @returns normalized hits.
+ */
+export async function searchEuropepmc(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]> {
+  const url = new URL('https://www.ebi.ac.uk/europepmc/webservices/rest/search')
+  url.searchParams.set('query', query)
+  url.searchParams.set('format', 'json')
+  url.searchParams.set('pageSize', String(count))
+  const response = await fetchWith429Retry(url, deps)
+  if (!response.ok) throw new SourceError('europepmc', `HTTP ${response.status}`)
+  const body = await response.json() as { resultList?: { result?: EuropePmcResult[] } }
+  return (body.resultList?.result ?? []).map(record => europepmcHit(record, 'europepmc'))
+}
+
+/**
+ * Search bioRxiv preprints. bioRxiv's own API only serves date-range dumps,
+ * so the search rides EuropePMC's preprint index filtered to the bioRxiv
+ * source — same corpus, one honest indirection.
+ * @param query - free-text query.
+ * @param count - requested page size.
+ * @param deps - fetch dependencies.
+ * @returns normalized hits.
+ */
+export async function searchBiorxiv(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]> {
+  const url = new URL('https://www.ebi.ac.uk/europepmc/webservices/rest/search')
+  url.searchParams.set('query', `${query} AND (SRC:PPR AND PUBLICATION_SOURCE:biorxiv)`)
+  url.searchParams.set('format', 'json')
+  url.searchParams.set('pageSize', String(count))
+  const response = await fetchWith429Retry(url, deps)
+  if (!response.ok) throw new SourceError('biorxiv', `HTTP ${response.status}`)
+  const body = await response.json() as { resultList?: { result?: EuropePmcResult[] } }
+  return (body.resultList?.result ?? []).map(record => europepmcHit(record, 'biorxiv'))
 }
 
 /** Whether one hit survives a recency window; undated hits do not. */

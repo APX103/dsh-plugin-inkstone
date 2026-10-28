@@ -9,7 +9,7 @@
 /** One normalized paper hit shared by every source and the aggregate tool. */
 export interface PaperHit {
     /** Source id that produced the hit. */
-    readonly source: 'arxiv' | 'crossref' | 'openalex';
+    readonly source: 'arxiv' | 'crossref' | 'openalex' | 'pubmed' | 'europepmc' | 'biorxiv';
     /** Paper title. */
     readonly title: string;
     /** Authors, best effort. */
@@ -35,6 +35,8 @@ export interface SourceDeps {
     readonly mailto?: string | undefined;
     /** Optional OpenAlex premium key sent as api_key; free tier uses mailto only. */
     readonly openalexApiKey?: string | undefined;
+    /** Optional NCBI API key appended to E-utilities calls (10x rate headroom). */
+    readonly ncbiApiKey?: string | undefined;
 }
 /** Source failure surfaced to callers with the source id attached. */
 export declare class SourceError extends Error {
@@ -42,6 +44,33 @@ export declare class SourceError extends Error {
     readonly cause?: unknown | undefined;
     constructor(source: PaperHit['source'], message: string, cause?: unknown | undefined);
 }
+/**
+ * Search PubMed via E-utilities: esearch for PMIDs, then efetch for the
+ * article XML (title, abstract, journal, date, authors, DOI).
+ * @param query - free-text PubMed query (full E-utilities term syntax).
+ * @param count - requested result count.
+ * @param deps - fetch dependencies (api_key when configured).
+ * @returns normalized hits sorted by the server's date ranking.
+ */
+export declare function searchPubmed(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]>;
+/**
+ * Search EuropePMC (includes PubMed Central full texts and preprints).
+ * @param query - free-text query (EuropePMC query syntax).
+ * @param count - requested page size.
+ * @param deps - fetch dependencies.
+ * @returns normalized hits.
+ */
+export declare function searchEuropepmc(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]>;
+/**
+ * Search bioRxiv preprints. bioRxiv's own API only serves date-range dumps,
+ * so the search rides EuropePMC's preprint index filtered to the bioRxiv
+ * source — same corpus, one honest indirection.
+ * @param query - free-text query.
+ * @param count - requested page size.
+ * @param deps - fetch dependencies.
+ * @returns normalized hits.
+ */
+export declare function searchBiorxiv(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]>;
 /** Whether one hit survives a recency window; undated hits do not. */
 export declare function withinRecency(hit: PaperHit, recency: Recency | undefined, now?: Date): boolean;
 /**
