@@ -8,6 +8,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { A2aCard, type A2aCardProps } from '../src/client/A2aCard'
 import type { A2aCardState } from '../src/client/a2a-card-controller'
 import type { ScpHubPanelState } from '../src/client/scp-hub-panel-controller'
+import type { LocalMcpState } from '../src/client/localmcp-panel-controller'
 import { en } from '../src/client/locales'
 
 afterEach(cleanup)
@@ -63,6 +64,7 @@ function renderA2a(state: Partial<A2aCardState> = {}) {
     removeFromRoster: vi.fn(async () => {}),
   }
   const panelStore = createSnapshotStore<ScpHubPanelState>(basePanelState())
+  const localMcpStore = createSnapshotStore<LocalMcpState>({ status: 'ready', busy: false, error: null, servers: [] })
   const panelActions = {
     searchCatalog: vi.fn(async () => {}),
     addScp: vi.fn(async () => {}),
@@ -79,6 +81,9 @@ function renderA2a(state: Partial<A2aCardState> = {}) {
     t,
     useA2aCard: bindSnapshotSelector(store),
     useScpHubPanel: bindSnapshotSelector(panelStore),
+    useLocalMcpPanel: bindSnapshotSelector(localMcpStore),
+    setServerEnabled: vi.fn(async () => {}),
+    dispose: () => {},
   } as A2aCardProps
   const view = render(<A2aCard {...props} />)
   return { actions, panelActions, store, unmount: view.unmount }

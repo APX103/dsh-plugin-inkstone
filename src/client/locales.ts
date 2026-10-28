@@ -37,6 +37,13 @@ export type A2aSettingsLocaleKey =
   | 'tabScps'
   | 'tabSkills'
   | 'tabBuiltin'
+  | 'tabLocalMcps'
+  | 'localMcpsTitle'
+  | 'localMcpsHint'
+  | 'localMcpsEmpty'
+  | 'localMcpsUnavailable'
+  | 'localMcpsTools'
+  | 'localMcpsRejected'
   | 'builtinTitle'
   | 'builtinHint'
   | 'builtinEmpty'
@@ -156,6 +163,13 @@ export const en: Record<A2aSettingsLocaleKey, string> = {
   toolPickerPrev: 'Prev',
   toolPickerNext: 'Next',
   toolPickerPage: 'Page {page} of {pages}',
+  tabLocalMcps: 'Local MCP',
+  localMcpsTitle: 'Local MCP servers',
+  localMcpsHint: 'Generic MCP servers configured in the profile (stdio or Streamable HTTP). Toggling remounts the selected tools without a restart; add or edit servers in the profile configuration.',
+  localMcpsEmpty: 'No local MCP servers configured.',
+  localMcpsUnavailable: 'Unavailable — the plugin configuration is not served right now.',
+  localMcpsTools: 'tools',
+  localMcpsRejected: 'The change was not accepted — reopen this page and try again.',
   loading: 'Loading…',
   errorPrefix: 'Failed',
   remoteTitle: 'Inkstone · Remote',
@@ -245,6 +259,13 @@ export const zh: Record<A2aSettingsLocaleKey, string> = {
   toolPickerPrev: '上一页',
   toolPickerNext: '下一页',
   toolPickerPage: '第 {page}/{pages} 页',
+  tabLocalMcps: '本地 MCP',
+  localMcpsTitle: '本地 MCP 服务器',
+  localMcpsHint: '配置在 profile 里的通用 MCP 服务器（stdio 或 Streamable HTTP）。此处的开关热重挂已选工具，无需重启；新增与编辑在 profile 配置中进行。',
+  localMcpsEmpty: '尚未配置本地 MCP 服务器。',
+  localMcpsUnavailable: '暂不可用——插件配置当前未在服务。',
+  localMcpsTools: '个工具',
+  localMcpsRejected: '修改未被接受——请重新打开本页再试。',
   loading: '加载中…',
   errorPrefix: '操作失败',
   remoteTitle: '端砚 · Remote',

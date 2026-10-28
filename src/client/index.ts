@@ -26,6 +26,7 @@ import type { AcadSearchCardProps, AcadSearchSlotFace } from './AcadSearchCard'
 import { AcadSearchCard } from './AcadSearchCard'
 import { A2aCardController } from './a2a-card-controller'
 import { AcadSearchCardController } from './acadsearch-card-controller'
+import { LocalMcpPanelController } from './localmcp-panel-controller'
 import { ScpHubPanelController } from './scp-hub-panel-controller'
 import { en, zh, type A2aSettingsLocaleKey } from './locales'
 
@@ -78,11 +79,12 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     const controller = new A2aCardController(remoteCtx, remoteCtx.configForms.get(INKSTONE_ENTRY))
     const panels = new ScpHubPanelController(remoteCtx, remoteCtx.configForms.get(INKSTONE_ENTRY))
     const acad = AcadSearchCardController(remoteCtx, remoteCtx.configForms.get(INKSTONE_ENTRY))
+    const localMcp = LocalMcpPanelController(remoteCtx, remoteCtx.configForms.get(INKSTONE_ENTRY))
     const face = (): InkstoneFace => {
       const registry = controller.inject()
       const hub = panels.inject()
       return {
-        hooks: { a2aCard: registry.hooks.a2aCard, scpHubPanel: hub.hooks.scpHubPanel },
+        hooks: { a2aCard: registry.hooks.a2aCard, scpHubPanel: hub.hooks.scpHubPanel, localMcpPanel: localMcp.hooks.localMcpPanel },
         refresh: registry.refresh,
         signIn: registry.signIn,
         signOut: registry.signOut,
@@ -103,6 +105,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
         installSkill: hub.installSkill,
         removeSkill: hub.removeSkill,
         setSkillEnabled: hub.setSkillEnabled,
+        setServerEnabled: localMcp.setServerEnabled,
+        dispose: localMcp.dispose,
       }
     }
     const disposePage = ctx.configForms.whileServed([INKSTONE_ENTRY], () => {
@@ -123,7 +127,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
         order: 51,
         label: () => t('localTitle'),
         locale: NS,
-        inject: (): InkstoneFace => ({ ...face(), panels: ['builtin'] }),
+        inject: (): InkstoneFace => ({ ...face(), panels: ['builtin', 'localmcp'] }),
       }, A2aCard))
       const disposeAcadSlot = ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
@@ -152,6 +156,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     return () => {
       disposePage()
       acad.dispose()
+      localMcp.dispose()
       panels.dispose()
       controller.dispose()
     }
