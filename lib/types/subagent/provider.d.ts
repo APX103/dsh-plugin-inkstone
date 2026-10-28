@@ -1,14 +1,21 @@
 /**
- * The A2A subagent provider: bridges one roster agent onto `ctx.subagents`
- * as a remote one-shot provider with per-(parent session, agent) A2A
- * continuation, ticket refresh on authentication failure, and artifact-aware
- * result settlement.
+ * The A2A subagent provider: bridges one roster agent onto `ctx.subagents` as
+ * a SESSION-BACKED one-shot provider. Each delegation composes a fresh
+ * in-process child agent (own durable session, zero parent context) whose
+ * single capability is the relay tool; the tool performs the remote A2A turn
+ * and the provider settles the run from the authoritative remote outcome.
+ * The child session keeps the full delegation transcript, so the native
+ * subagent catalog can open the round-trip and `@` reference the child.
+ *
+ * Continuation, ticket refresh, and artifact-aware settlement are unchanged:
+ * they key on (parent session, agent) exactly as before.
  *
  * @module dsh-plugin-inkstone/subagent/provider
  */
+import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import type { SessionId } from '@deepseek-ai/dsh-session';
-import type { A2aAgent, A2aTurnOutcome } from '../a2a/index';
 import type { SubagentProvider } from '@deepseek-ai/dsh-subagent';
+import type { A2aAgent, A2aTurnOutcome } from '../a2a/index';
 import type { A2aContinuation, A2aHeadersSource, RosterAgent } from './types';
 /** Continuation store keyed by parent session id and agent name. */
 export declare class ContinuationStore {
@@ -48,3 +55,9 @@ export declare function createA2aProvider(agent: RosterAgent, headers: A2aHeader
     endpointUrl: string;
     authHeaders: () => Promise<Record<string, string>>;
 }) => A2aAgent): SubagentProvider;
+/**
+ * Extract the delegation text from one start request's prompt blocks.
+ * @param prompt - the prompt content blocks.
+ * @returns their concatenated text.
+ */
+export declare function promptText(prompt: readonly ContentBlock[]): string;
