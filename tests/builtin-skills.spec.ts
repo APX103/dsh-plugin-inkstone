@@ -71,10 +71,10 @@ describe('registerBuiltinSkills', () => {
 })
 
 describe('shipped catalog', () => {
-  it('contains the six ported scientific skills with complete frontmatter', async () => {
+  it('contains the nine ported scientific skills with complete frontmatter', async () => {
     const skills = await loadBuiltinSkills(builtinSkillsRoot())
     expect(skills.map(skill => skill.name)).toEqual([
-      'academic-figure', 'figure-composer', 'indication-dossier', 'literature-review', 'paper-narrative', 'tech-diagram',
+      'academic-figure', 'alphafold2', 'boltz', 'figure-composer', 'indication-dossier', 'literature-review', 'paper-narrative', 'proteinmpnn', 'tech-diagram',
     ])
     for (const skill of skills) {
       expect(skill.description.length).toBeGreaterThan(20)
