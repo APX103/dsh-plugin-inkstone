@@ -29,6 +29,8 @@ import { defaultSkillsRoot } from './skills/install'
 import { mountBuiltinSkills } from './skills/builtin'
 import { ACADEMIC_SOURCES, registerAcademicSearchTools } from './acadsearch/tools'
 import type { AcademicSourceId } from './acadsearch/tools'
+import { mountLocalMcp } from './localmcp/mount'
+import type { LocalMcp } from './localmcp/mount'
 import ScpHubController from './scphub/remote'
 
 export { A2aError, classifyA2aError } from './a2a/error'
@@ -42,6 +44,8 @@ export { ScpHubError } from './scphub/error'
 export { ScpHubClient, ScpHubApiKey, SCP_HUB_DEPLOYMENTS } from './scphub/index'
 export type { ScpHubCatalogItem, ScpHubCatalogPage, ScpHubScpDetail, ScpHubSkillDetail, ScpHubToolSummary } from './scphub/client'
 export type { LocalScp, LocalSkill } from './scphub/types'
+export { mountLocalMcp } from './localmcp/mount'
+export type { LocalMcp } from './localmcp/mount'
 export { readSkillArchive, installSkill, defaultSkillsRoot } from './skills/install'
 export { loadBuiltinSkills, parseSkillMarkdown, registerBuiltinSkills } from './skills/builtin'
 export type { BuiltinSkill } from './skills/builtin'
@@ -70,6 +74,8 @@ export interface Config extends DelegationConfig {
   scpHubEnvironment: 'staging' | 'production'
   /** The locally added SCP servers. */
   scps: Volatile<LocalScp[]>
+  /** The locally added generic MCP servers (stdio or Streamable HTTP). */
+  localMcps: Volatile<LocalMcp[]>
   /** The locally installed skills. */
   skills: Volatile<LocalSkill[]>
   /** Bundled skill names the user switched off; every shipped skill enables by default. */
@@ -109,6 +115,21 @@ const scpSchema = z.object({
   toolNames: z.array(z.string()).default([]),
 })
 
+const localMcpSchema = z.object({
+  id: z.string().required(),
+  name: z.string().required(),
+  description: z.string().default(''),
+  transport: z.union(['stdio', 'http'] as const).required(),
+  command: z.string(),
+  args: z.array(z.string()),
+  env: z.dict(z.string()),
+  url: z.string(),
+  headers: z.dict(z.string()),
+  enabled: z.boolean().default(true),
+  selectedTools: z.array(z.string()).default([]),
+  toolNames: z.array(z.string()).default([]),
+})
+
 const skillSchema = z.object({
   id: z.string().required(),
   skillName: z.string().required(),
@@ -125,6 +146,7 @@ export const Config = z.object({
   scpHubEnvironment: z.union(['staging', 'production'] as const).default('staging'),
   agents: z.array(agentSchema).volatile().default([]),
   scps: z.array(scpSchema).volatile().default([]),
+  localMcps: z.array(localMcpSchema).volatile().default([]),
   skills: z.array(skillSchema).volatile().default([]),
   disabledBuiltinSkills: z.array(z.string()).volatile().default([]),
   toolName: z.string().default('subagent_a2a'),
@@ -234,6 +256,52 @@ export function apply(ctx: Context, config: Config): void {
       mirror.on('loader/volatile-update', rebuild, { global: true })
       mirror.effect(() => () => {
         disposeTools?.()
+      })
+    },
+  })
+  ctx.plugin({
+    name: 'inkstone-localmcp',
+    inject: ['tools'],
+    apply(mirror: Context): void {
+      interface Mount {
+        readonly signature: string
+        readonly dispose: Promise<() => void>
+      }
+      const mounts = new Map<string, Mount>()
+      const rebuild = (): void => {
+        const previous = new Map(mounts)
+        mounts.clear()
+        for (const server of config.localMcps.get().filter(entry => entry.enabled)) {
+          // Differential rebuild: an unchanged server keeps its live session,
+          // so unrelated volatile edits never respawn stdio children.
+          const signature = JSON.stringify(server)
+          const keep = previous.get(server.id)
+          if (keep !== undefined && keep.signature === signature) {
+            mounts.set(server.id, keep)
+            continue
+          }
+          if (keep !== undefined) {
+            void keep.dispose.then(dispose => dispose())
+          }
+          const dispose = mountLocalMcp(mirror, server).then(
+            disposeTools => disposeTools,
+            // One unavailable server parks itself without blocking the rest.
+            () => () => {},
+          )
+          mounts.set(server.id, { signature, dispose })
+        }
+        for (const [id, stale] of previous) {
+          if (!mounts.has(id)) {
+            void stale.dispose.then(dispose => dispose())
+          }
+        }
+      }
+      rebuild()
+      mirror.on('loader/volatile-update', rebuild, { global: true })
+      mirror.effect(() => () => {
+        for (const mount of mounts.values()) {
+          void mount.dispose.then(dispose => dispose())
+        }
       })
     },
   })
