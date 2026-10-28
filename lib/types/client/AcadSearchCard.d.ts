@@ -17,8 +17,10 @@ export interface AcadSearchSlotFace {
     toggleSource(id: 'arxiv' | 'crossref' | 'openalex', enabled: boolean): Promise<void>;
     /** Update the draft mailto. */
     setMailto(value: string): void;
-    /** Commit the draft mailto; resolves false when the Host refused. */
-    saveMailto(): Promise<boolean>;
+    /** Update the draft OpenAlex premium key. */
+    setOpenAlexKey(value: string): void;
+    /** Commit mailto and key; resolves false when the Host refused. */
+    saveAcad(): Promise<boolean>;
 }
 /** Framework-derived props for the academic search settings section. */
 export type AcadSearchCardProps = PropsRuntime<'settings.section'> & PropsLocale<'settings.a2a'> & InjectFace<AcadSearchSlotFace>;

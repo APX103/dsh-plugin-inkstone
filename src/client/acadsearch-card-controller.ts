@@ -31,6 +31,8 @@ export interface AcadSearchState {
   readonly sources: readonly AcademicSourceRow[]
   /** Current draft mailto value (empty sends none). */
   readonly mailto: string
+  /** Current draft OpenAlex premium key (empty sends none). */
+  readonly openalexApiKey: string
 }
 
 /** Actions and observable state bound by the slot renderer. */
@@ -40,17 +42,19 @@ export interface AcadSearchFace {
   }
   toggleSource(id: (typeof ACADEMIC_SOURCE_IDS)[number], enabled: boolean): Promise<void>
   setMailto(value: string): Promise<void>
-  saveMailto(): Promise<boolean>
+  setOpenAlexKey(value: string): Promise<void>
+  saveAcad(): Promise<boolean>
   dispose(): void
 }
 
 /** Shape of the acadsearch configuration fields on the wire. */
-type AcadSearchConfig = { enabledAcademicSources?: unknown, academicMailto?: unknown }
+type AcadSearchConfig = { enabledAcademicSources?: unknown, academicMailto?: unknown, openalexApiKey?: unknown }
 
 /** Draft state one controller edits before an accepted write. */
 interface Draft {
   readonly sources: readonly AcademicSourceRow[]
   readonly mailto: string
+  readonly openalexApiKey: string
 }
 
 /**
@@ -66,8 +70,9 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
     error: null,
     sources: ACADEMIC_SOURCE_IDS.map(id => ({ id, enabled: true })),
     mailto: '',
+    openalexApiKey: '',
   })
-  let draft: Draft = { sources: store.getSnapshot().sources, mailto: '' }
+  let draft: Draft = { sources: store.getSnapshot().sources, mailto: '', openalexApiKey: '' }
 
   const readDraft = (): Draft => {
     const snapshot = form.getSnapshot()
@@ -80,6 +85,7 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
     return {
       sources: ACADEMIC_SOURCE_IDS.map(id => ({ id, enabled: enabled.includes(id) })),
       mailto: typeof raw.academicMailto === 'string' ? raw.academicMailto : '',
+      openalexApiKey: typeof raw.openalexApiKey === 'string' ? raw.openalexApiKey : '',
     }
   }
 
@@ -121,11 +127,16 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
       draft = { ...draft, mailto: value }
       publish(null)
     },
-    async saveMailto() {
+    async setOpenAlexKey(value) {
+      draft = { ...draft, openalexApiKey: value }
+      publish(null)
+    },
+    async saveAcad() {
       const current = form.getSnapshot()
       if (current.status !== 'ready' || !current.writable) return false
       publish(null, true)
       const accepted = await form.set('academicMailto', draft.mailto.trim())
+        && await form.set('openalexApiKey', draft.openalexApiKey.trim())
       if (!accepted) {
         draft = readDraft()
         publish('rejected')

@@ -33,6 +33,8 @@ export interface SourceDeps {
     readonly fetchImpl: typeof fetch;
     /** Optional polite-pool contact address appended to Crossref/OpenAlex. */
     readonly mailto?: string | undefined;
+    /** Optional OpenAlex premium key sent as api_key; free tier uses mailto only. */
+    readonly openalexApiKey?: string | undefined;
 }
 /** Source failure surfaced to callers with the source id attached. */
 export declare class SourceError extends Error {

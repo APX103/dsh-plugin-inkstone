@@ -1,7 +1,7 @@
 /** The A2A agents settings section. */
 
 import type { ReactNode } from 'react'
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { A2aCardFace, A2aCardState, DirectoryRow } from './a2a-card-controller'
@@ -48,6 +48,11 @@ export function A2aCard(props: A2aCardProps) {
   const [editing, setEditing] = useState(false)
   const panels = props.panels ?? ALL_PANELS
   const [active, setActive] = useState<PanelId>(panels[0] ?? 'agents')
+  // The builtin list loads on activation, not only on click: in the Local
+  // section it is the initial panel and never receives a click.
+  useEffect(() => {
+    if (active === 'builtin') void props.loadBuiltinSkills()
+  }, [active])
   const busy = state.busy !== null || state.rosterBusy
   const panelBusy = panel.mutating !== null || panel.searching !== null
   return (
@@ -130,7 +135,7 @@ export function A2aCard(props: A2aCardProps) {
             role="tab"
             className={css.tab}
             aria-selected={active === id}
-            onClick={() => { setActive(id); if (id === 'builtin') { void props.loadBuiltinSkills() } }}
+            onClick={() => { setActive(id) }}
           >
             {id === 'agents' ? t('tabAgents') : id === 'scps' ? t('tabScps') : id === 'skills' ? t('tabSkills') : t('tabBuiltin')}
           </button>

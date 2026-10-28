@@ -39,6 +39,20 @@ export interface SourceDeps {
   readonly fetchImpl: typeof fetch
   /** Optional polite-pool contact address appended to Crossref/OpenAlex. */
   readonly mailto?: string | undefined
+  /** Optional OpenAlex premium key sent as api_key; free tier uses mailto only. */
+  readonly openalexApiKey?: string | undefined
+}
+
+/** One shared-IP 429 gets a single spaced retry before the failure surfaces. */
+async function fetchWith429Retry(url: URL | string, deps: SourceDeps): Promise<Response> {
+  const attempt = await deps.fetchImpl(url, { signal: AbortSignal.timeout(20_000) })
+  if (attempt.status !== 429) return attempt
+  const retryAfter = Number(attempt.headers.get('retry-after'))
+  const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+    ? Math.min(retryAfter * 1000, 5_000)
+    : 1_500
+  await new Promise(resolve => { setTimeout(resolve, delayMs) })
+  return deps.fetchImpl(url, { signal: AbortSignal.timeout(20_000) })
 }
 
 /** Source failure surfaced to callers with the source id attached. */
@@ -113,7 +127,7 @@ function normalizeDoi(value: string | undefined | null): string | undefined {
 export async function searchArxiv(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]> {
   const url = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}`
     + `&max_results=${count}&sortBy=submittedDate&sortOrder=descending`
-  const response = await deps.fetchImpl(url, { signal: AbortSignal.timeout(20_000) })
+  const response = await fetchWith429Retry(url, deps)
   if (!response.ok) throw new SourceError('arxiv', `HTTP ${response.status}`)
   const xml = await response.text()
   const hits: PaperHit[] = []
@@ -148,7 +162,7 @@ export async function searchCrossref(query: string, count: number, deps: SourceD
   url.searchParams.set('rows', String(count))
   url.searchParams.set('select', 'DOI,title,abstract,container-title,issued,URL,author')
   if (deps.mailto !== undefined && deps.mailto !== '') url.searchParams.set('mailto', deps.mailto)
-  const response = await deps.fetchImpl(url, { signal: AbortSignal.timeout(20_000) })
+  const response = await fetchWith429Retry(url, deps)
   if (!response.ok) throw new SourceError('crossref', `HTTP ${response.status}`)
   const body = await response.json() as { message?: { items?: Array<Record<string, unknown>> } }
   const items = body.message?.items ?? []
@@ -211,7 +225,8 @@ export async function searchOpenAlex(query: string, count: number, deps: SourceD
   url.searchParams.set('search', query)
   url.searchParams.set('per-page', String(count))
   if (deps.mailto !== undefined && deps.mailto !== '') url.searchParams.set('mailto', deps.mailto)
-  const response = await deps.fetchImpl(url, { signal: AbortSignal.timeout(20_000) })
+  if (deps.openalexApiKey !== undefined && deps.openalexApiKey !== '') url.searchParams.set('api_key', deps.openalexApiKey)
+  const response = await fetchWith429Retry(url, deps)
   if (!response.ok) throw new SourceError('openalex', `HTTP ${response.status}`)
   const body = await response.json() as { results?: OpenAlexWork[] }
   return (body.results ?? []).map(work => ({

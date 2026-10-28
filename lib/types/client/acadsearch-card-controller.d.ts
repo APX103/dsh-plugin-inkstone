@@ -27,6 +27,8 @@ export interface AcadSearchState {
     readonly sources: readonly AcademicSourceRow[];
     /** Current draft mailto value (empty sends none). */
     readonly mailto: string;
+    /** Current draft OpenAlex premium key (empty sends none). */
+    readonly openalexApiKey: string;
 }
 /** Actions and observable state bound by the slot renderer. */
 export interface AcadSearchFace {
@@ -35,13 +37,15 @@ export interface AcadSearchFace {
     };
     toggleSource(id: (typeof ACADEMIC_SOURCE_IDS)[number], enabled: boolean): Promise<void>;
     setMailto(value: string): Promise<void>;
-    saveMailto(): Promise<boolean>;
+    setOpenAlexKey(value: string): Promise<void>;
+    saveAcad(): Promise<boolean>;
     dispose(): void;
 }
 /** Shape of the acadsearch configuration fields on the wire. */
 type AcadSearchConfig = {
     enabledAcademicSources?: unknown;
     academicMailto?: unknown;
+    openalexApiKey?: unknown;
 };
 /**
  * Build the card controller over one plugin configuration form.
