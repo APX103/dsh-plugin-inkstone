@@ -22,11 +22,15 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import a2aRegistryRemote from './typert.remote-client'
 import scpHubRemote from './typert.scphub.remote-client'
 import { A2aCard, type InkstoneFace } from './A2aCard'
+import type { AcadSearchCardProps, AcadSearchSlotFace } from './AcadSearchCard'
+import { AcadSearchCard } from './AcadSearchCard'
 import { A2aCardController } from './a2a-card-controller'
+import { AcadSearchCardController } from './acadsearch-card-controller'
 import { ScpHubPanelController } from './scp-hub-panel-controller'
 import { en, zh, type A2aSettingsLocaleKey } from './locales'
 
 export type { A2aCardProps } from './A2aCard'
+export type { AcadSearchCardProps, AcadSearchSlotFace } from './AcadSearchCard'
 export type {
   A2aCardFace, A2aCardState, DirectoryRow, LoginState, RosterRow,
 } from './a2a-card-controller'
@@ -73,42 +77,79 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     // plugin mounts them, so a self-inject would wait for itself forever).
     const controller = new A2aCardController(remoteCtx, remoteCtx.configForms.get(INKSTONE_ENTRY))
     const panels = new ScpHubPanelController(remoteCtx, remoteCtx.configForms.get(INKSTONE_ENTRY))
-    const disposePage = ctx.configForms.whileServed([INKSTONE_ENTRY], () => ctx.slots.inject('settings.section', () => ctx.slots.register({
-      name: 'settings.section',
-      id: 'inkstone-agents',
-      order: 50,
-      label: () => t('title'),
-      locale: NS,
-      inject: (): InkstoneFace => {
-        const registry = controller.inject()
-        const hub = panels.inject()
-        return {
-          hooks: { a2aCard: registry.hooks.a2aCard, scpHubPanel: hub.hooks.scpHubPanel },
-          refresh: registry.refresh,
-          signIn: registry.signIn,
-          signOut: registry.signOut,
-          loadDirectory: registry.loadDirectory,
-          addToRoster: registry.addToRoster,
-          setRosterEnabled: registry.setRosterEnabled,
-          removeFromRoster: registry.removeFromRoster,
-          searchCatalog: hub.searchCatalog,
-          addScp: hub.addScp,
-          removeScp: hub.removeScp,
-          setScpEnabled: hub.setScpEnabled,
-          openToolPicker: hub.openToolPicker,
-          closeToolPicker: hub.closeToolPicker,
-          setToolPickerPage: hub.setToolPickerPage,
-          toggleTool: hub.toggleTool,
-          loadBuiltinSkills: hub.loadBuiltinSkills,
-          setBuiltinEnabled: hub.setBuiltinEnabled,
-          installSkill: hub.installSkill,
-          removeSkill: hub.removeSkill,
-          setSkillEnabled: hub.setSkillEnabled,
-        }
-      },
-    }, A2aCard)))
+    const acad = AcadSearchCardController(remoteCtx, remoteCtx.configForms.get(INKSTONE_ENTRY))
+    const face = (): InkstoneFace => {
+      const registry = controller.inject()
+      const hub = panels.inject()
+      return {
+        hooks: { a2aCard: registry.hooks.a2aCard, scpHubPanel: hub.hooks.scpHubPanel },
+        refresh: registry.refresh,
+        signIn: registry.signIn,
+        signOut: registry.signOut,
+        loadDirectory: registry.loadDirectory,
+        addToRoster: registry.addToRoster,
+        setRosterEnabled: registry.setRosterEnabled,
+        removeFromRoster: registry.removeFromRoster,
+        searchCatalog: hub.searchCatalog,
+        addScp: hub.addScp,
+        removeScp: hub.removeScp,
+        setScpEnabled: hub.setScpEnabled,
+        openToolPicker: hub.openToolPicker,
+        closeToolPicker: hub.closeToolPicker,
+        setToolPickerPage: hub.setToolPickerPage,
+        toggleTool: hub.toggleTool,
+        loadBuiltinSkills: hub.loadBuiltinSkills,
+        setBuiltinEnabled: hub.setBuiltinEnabled,
+        installSkill: hub.installSkill,
+        removeSkill: hub.removeSkill,
+        setSkillEnabled: hub.setSkillEnabled,
+      }
+    }
+    const disposePage = ctx.configForms.whileServed([INKSTONE_ENTRY], () => {
+      // Three sibling sections over one configuration form: Remote (registry,
+      // SCP services, catalog skills), Local (bundled Inkstone skills), and
+      // the academic search sources.
+      const disposeRemoteSlot = ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: 'inkstone-remote',
+        order: 50,
+        label: () => t('remoteTitle'),
+        locale: NS,
+        inject: (): InkstoneFace => ({ ...face(), panels: ['agents', 'scps', 'skills'] }),
+      }, A2aCard))
+      const disposeLocalSlot = ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: 'inkstone-local',
+        order: 51,
+        label: () => t('localTitle'),
+        locale: NS,
+        inject: (): InkstoneFace => ({ ...face(), panels: ['builtin'] }),
+      }, A2aCard))
+      const disposeAcadSlot = ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: 'inkstone-acadsearch',
+        order: 52,
+        label: () => t('acadTitle'),
+        locale: NS,
+        inject: (): AcadSearchSlotFace => {
+          const acadFace = acad
+          return {
+            hooks: { acadSearch: acadFace.hooks.acadSearch },
+            toggleSource: acadFace.toggleSource,
+            setMailto: acadFace.setMailto,
+            saveMailto: acadFace.saveMailto,
+          }
+        },
+      }, AcadSearchCard))
+      return () => {
+        disposeAcadSlot()
+        disposeLocalSlot()
+        disposeRemoteSlot()
+      }
+    })
     return () => {
       disposePage()
+      acad.dispose()
       panels.dispose()
       controller.dispose()
     }

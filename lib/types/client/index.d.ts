@@ -12,6 +12,7 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis';
 import { type A2aSettingsLocaleKey } from './locales';
 export type { A2aCardProps } from './A2aCard';
+export type { AcadSearchCardProps, AcadSearchSlotFace } from './AcadSearchCard';
 export type { A2aCardFace, A2aCardState, DirectoryRow, LoginState, RosterRow, } from './a2a-card-controller';
 export type { A2aSettingsLocaleKey } from './locales';
 declare module '@deepseek-ai/dsh-client-ui-slots' {

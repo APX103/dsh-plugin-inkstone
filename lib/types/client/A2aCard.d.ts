@@ -5,9 +5,13 @@ import type { ScpHubPanelFace } from './scp-hub-panel-controller';
 /** The merged inject face: registry panel plus SCP Hub panel. */
 export interface InkstoneFace extends Omit<A2aCardFace, 'hooks'>, Omit<ScpHubPanelFace, 'hooks'> {
     hooks: A2aCardFace['hooks'] & ScpHubPanelFace['hooks'];
+    /** Panels this section shows; every panel when omitted. */
+    readonly panels?: readonly PanelId[];
 }
 /** Framework-derived props for the A2A agents settings section. */
 export type A2aCardProps = PropsRuntime<'settings.section'> & PropsLocale<'settings.a2a'> & InjectFace<InkstoneFace>;
+/** The panels below the sign-in card. */
+export type PanelId = 'agents' | 'scps' | 'skills' | 'builtin';
 /**
  * Render the registry sign-in, then the three panels: agent registry, SCP
  * services, and skills.

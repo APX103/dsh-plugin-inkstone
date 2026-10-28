@@ -153,15 +153,26 @@ describe('ui-settings-a2a apply', () => {
     } as never, () => null)
     const fiber = await ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    await vi.waitFor(() => { expect(slots.entries('settings.section')).toHaveLength(1) })
-    const entry = slots.entries('settings.section')[0]!
-    expect(entry.options).toMatchObject({ id: 'inkstone-agents', order: 50 })
-    expect(resolveSlotLabel(entry.options.label)).toBe('端砚 · A2A 远程 Agent')
-    expect(entry.locale).toBe(NS)
-    const bound = (entry.inject as () => { refresh(): Promise<void> })()
-    expect(typeof bound.refresh).toBe('function')
+    await vi.waitFor(() => { expect(slots.entries('settings.section')).toHaveLength(3) })
+    const entries = slots.entries('settings.section')
+    expect(entries.map(entry => entry.options.id)).toEqual(['inkstone-remote', 'inkstone-local', 'inkstone-acadsearch'])
+    expect(entries.map(entry => entry.options.order)).toEqual([50, 51, 52])
+    expect(resolveSlotLabel(entries[0]!.options.label)).toBe('端砚 · Remote')
+    expect(resolveSlotLabel(entries[1]!.options.label)).toBe('端砚 · 本地')
+    expect(resolveSlotLabel(entries[2]!.options.label)).toBe('学术检索')
+    for (const entry of entries) {
+      expect(entry.locale).toBe(NS)
+    }
+    const remote = entries[0]!.inject as () => { panels?: readonly string[], refresh(): Promise<void> }
+    const remoteFace = remote()
+    expect(typeof remoteFace.refresh).toBe('function')
+    expect(remoteFace.panels).toEqual(['agents', 'scps', 'skills'])
+    const localFace = (entries[1]!.inject as () => { panels?: readonly string[] })()
+    expect(localFace.panels).toEqual(['builtin'])
+    const acadFace = entries[2]!.inject as () => { toggleSource(id: string, enabled: boolean): Promise<void>, hooks: object }
+    expect(typeof acadFace().toggleSource).toBe('function')
     const locale = ctx.get('locale') as { bind(ns: string): (key: string) => string }
-    expect(locale.bind(NS)('title')).toBe('端砚 · A2A 远程 Agent')
+    expect(locale.bind(NS)('remoteTitle')).toBe('端砚 · Remote')
     expect(typeof ctx.remote.a2aRegistry.status).toBe('function')
     await fiber.dispose()
     expect(slots.entries('settings.section')).toHaveLength(0)
