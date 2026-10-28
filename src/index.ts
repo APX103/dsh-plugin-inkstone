@@ -27,6 +27,8 @@ import { SCP_HUB_DEPLOYMENTS, ScpHubService } from './scphub/service'
 import { rebuildScpHubMirror } from './scphub/mirror'
 import { defaultSkillsRoot } from './skills/install'
 import { mountBuiltinSkills } from './skills/builtin'
+import { ACADEMIC_SOURCES, registerAcademicSearchTools } from './acadsearch/tools'
+import type { AcademicSourceId } from './acadsearch/tools'
 import ScpHubController from './scphub/remote'
 
 export { A2aError, classifyA2aError } from './a2a/error'
@@ -43,6 +45,10 @@ export type { LocalScp, LocalSkill } from './scphub/types'
 export { readSkillArchive, installSkill, defaultSkillsRoot } from './skills/install'
 export { loadBuiltinSkills, parseSkillMarkdown, registerBuiltinSkills } from './skills/builtin'
 export type { BuiltinSkill } from './skills/builtin'
+export { registerAcademicSearchTools, ACADEMIC_SOURCES } from './acadsearch/tools'
+export type { AcademicSearchOptions, AcademicSearchResult, AcademicSourceId } from './acadsearch/tools'
+export { searchArxiv, searchCrossref, searchOpenAlex, SourceError, withinRecency } from './acadsearch/sources'
+export type { PaperHit, Recency, SourceDeps } from './acadsearch/sources'
 
 /** Cordis plugin name. */
 export const name = 'inkstone'
@@ -74,6 +80,10 @@ export interface Config extends DelegationConfig {
   maxToolServers: number
   /** Upper bound of selected tools registered across every SCP server. */
   maxSelectedTools: number
+  /** Aggregate academic search sources; single-source tools stay registered. */
+  enabledAcademicSources: Volatile<string[]>
+  /** Polite-pool contact for Crossref/OpenAlex; empty sends none. */
+  academicMailto: string
 }
 
 const agentSchema = z.object({
@@ -118,6 +128,8 @@ export const Config = z.object({
   skillsRoot: z.string().default(defaultSkillsRoot()),
   maxToolServers: z.number().step(1).min(1).max(32).default(8),
   maxSelectedTools: z.number().step(1).min(1).max(1024).default(128),
+  enabledAcademicSources: z.array(z.union(['arxiv', 'crossref', 'openalex'] as const)).volatile().default(['arxiv', 'crossref', 'openalex']),
+  academicMailto: z.string().default(''),
 })
 
 /**
@@ -191,6 +203,29 @@ export function apply(ctx: Context, config: Config): void {
       mirror.effect(() => () => {
         disposeMirror?.()
         disposeBuiltin?.()
+      })
+    },
+  })
+  ctx.plugin({
+    name: 'inkstone-acadsearch',
+    inject: ['tools'],
+    apply(mirror: Context): void {
+      let disposeTools: (() => void) | undefined
+      const rebuild = (): void => {
+        disposeTools?.()
+        const enabled = config.enabledAcademicSources.get().filter((source): source is AcademicSourceId =>
+          (ACADEMIC_SOURCES as readonly string[]).includes(source),
+        )
+        disposeTools = registerAcademicSearchTools(mirror, {
+          enabledSources: enabled,
+          fetchImpl: fetch,
+          ...(config.academicMailto !== '' ? { mailto: config.academicMailto } : {}),
+        })
+      }
+      rebuild()
+      mirror.on('loader/volatile-update', rebuild, { global: true })
+      mirror.effect(() => () => {
+        disposeTools?.()
       })
     },
   })

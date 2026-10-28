@@ -179,10 +179,12 @@ describe('registerA2aTool', () => {
 })
 
 describe('plugin apply with an empty roster', () => {
-  it('registers no tool and no provider until an agent is enabled', async () => {
+  it('registers only the bundled academic tools until an agent is enabled', async () => {
     const empty = await setup([])
-    expect(empty.captured.tools.size).toBe(0)
+    expect(empty.captured.tools.has('subagent_a2a')).toBe(false)
     expect(empty.captured.providers).toEqual([])
+    expect(empty.captured.tools.has('academic_search')).toBe(true)
+    expect(empty.captured.tools.size).toBe(4)
     await empty.fiber.dispose()
   })
 })
