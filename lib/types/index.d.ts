@@ -28,6 +28,10 @@ export type { LocalScp, LocalSkill } from './scphub/types';
 export { readSkillArchive, installSkill, defaultSkillsRoot } from './skills/install';
 export { loadBuiltinSkills, parseSkillMarkdown, registerBuiltinSkills } from './skills/builtin';
 export type { BuiltinSkill } from './skills/builtin';
+export { registerAcademicSearchTools, ACADEMIC_SOURCES } from './acadsearch/tools';
+export type { AcademicSearchOptions, AcademicSearchResult, AcademicSourceId } from './acadsearch/tools';
+export { searchArxiv, searchCrossref, searchOpenAlex, SourceError, withinRecency } from './acadsearch/sources';
+export type { PaperHit, Recency, SourceDeps } from './acadsearch/sources';
 /** Cordis plugin name. */
 export declare const name = "inkstone";
 /** Services required before the plugin activates. */
@@ -56,6 +60,10 @@ export interface Config extends DelegationConfig {
     maxToolServers: number;
     /** Upper bound of selected tools registered across every SCP server. */
     maxSelectedTools: number;
+    /** Aggregate academic search sources; single-source tools stay registered. */
+    enabledAcademicSources: Volatile<string[]>;
+    /** Polite-pool contact for Crossref/OpenAlex; empty sends none. */
+    academicMailto: string;
 }
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
@@ -114,6 +122,8 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     skillsRoot: z<string, string, "defined">;
     maxToolServers: z<number, number, "defined">;
     maxSelectedTools: z<number, number, "defined">;
+    enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex")[]>, NoInfer<("arxiv" | "crossref" | "openalex")[]>, "volatile-defined">;
+    academicMailto: z<string, string, "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
     ssoBaseUrl: z<string, string, "defined">;
@@ -171,6 +181,8 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     skillsRoot: z<string, string, "defined">;
     maxToolServers: z<number, number, "defined">;
     maxSelectedTools: z<number, number, "defined">;
+    enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex")[]>, NoInfer<("arxiv" | "crossref" | "openalex")[]>, "volatile-defined">;
+    academicMailto: z<string, string, "defined">;
 }>>, "plain">;
 /**
  * Mount the registry service, the Remote controller, and the delegation mirror.
