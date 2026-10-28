@@ -14,6 +14,7 @@ import type { Context, Volatile } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 import type { DelegationConfig } from './subagent/index';
 import type { LocalScp, LocalSkill } from './scphub/types';
+import type { LocalMcp } from './localmcp/mount';
 export { A2aError, classifyA2aError } from './a2a/error';
 export { createA2aAgent } from './a2a/client';
 export type { A2aAgent, A2aCardSummary, A2aTaskRef, A2aTurnOutcome, A2aTurnRequest, A2aTaskSnapshot, A2aAgentOptions } from './a2a/client';
@@ -25,6 +26,8 @@ export { ScpHubError } from './scphub/error';
 export { ScpHubClient, ScpHubApiKey, SCP_HUB_DEPLOYMENTS } from './scphub/index';
 export type { ScpHubCatalogItem, ScpHubCatalogPage, ScpHubScpDetail, ScpHubSkillDetail, ScpHubToolSummary } from './scphub/client';
 export type { LocalScp, LocalSkill } from './scphub/types';
+export { mountLocalMcp } from './localmcp/mount';
+export type { LocalMcp } from './localmcp/mount';
 export { readSkillArchive, installSkill, defaultSkillsRoot } from './skills/install';
 export { loadBuiltinSkills, parseSkillMarkdown, registerBuiltinSkills } from './skills/builtin';
 export type { BuiltinSkill } from './skills/builtin';
@@ -50,6 +53,8 @@ export interface Config extends DelegationConfig {
     scpHubEnvironment: 'staging' | 'production';
     /** The locally added SCP servers. */
     scps: Volatile<LocalScp[]>;
+    /** The locally added generic MCP servers (stdio or Streamable HTTP). */
+    localMcps: Volatile<LocalMcp[]>;
     /** The locally installed skills. */
     skills: Volatile<LocalSkill[]>;
     /** Bundled skill names the user switched off; every shipped skill enables by default. */
@@ -103,6 +108,33 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         description: z<string, string, "defined">;
         publisher: z<string, string, "defined">;
         endpoint: z<string, string, "defined">;
+        enabled: z<boolean, boolean, "defined">;
+        selectedTools: z<string[], string[], "defined">;
+        toolNames: z<string[], string[], "defined">;
+    }>>[]>, "volatile-defined">;
+    localMcps: z<NoInfer<({
+        id?: string | null;
+        name?: string | null;
+        description?: string | null;
+        transport?: "http" | "stdio" | null;
+        command?: string | null;
+        args?: string[] | null;
+        env?: import("@deepseek-ai/cosmokit").Dict<string, string> | null;
+        url?: string | null;
+        headers?: import("@deepseek-ai/cosmokit").Dict<string, string> | null;
+        enabled?: boolean | null;
+        selectedTools?: string[] | null;
+        toolNames?: string[] | null;
+    } & import("@deepseek-ai/cosmokit").Dict)[]>, NoInfer<Schemastery.ObjectT<NoInfer<{
+        id: z<string, string, "defined">;
+        name: z<string, string, "defined">;
+        description: z<string, string, "defined">;
+        transport: z<"http" | "stdio", "http" | "stdio", "defined">;
+        command: z<string, string, "plain">;
+        args: z<string[], string[], "plain">;
+        env: z<import("@deepseek-ai/cosmokit").Dict<string, string>, import("@deepseek-ai/cosmokit").Dict<string, string>, "plain">;
+        url: z<string, string, "plain">;
+        headers: z<import("@deepseek-ai/cosmokit").Dict<string, string>, import("@deepseek-ai/cosmokit").Dict<string, string>, "plain">;
         enabled: z<boolean, boolean, "defined">;
         selectedTools: z<string[], string[], "defined">;
         toolNames: z<string[], string[], "defined">;
@@ -164,6 +196,33 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         description: z<string, string, "defined">;
         publisher: z<string, string, "defined">;
         endpoint: z<string, string, "defined">;
+        enabled: z<boolean, boolean, "defined">;
+        selectedTools: z<string[], string[], "defined">;
+        toolNames: z<string[], string[], "defined">;
+    }>>[]>, "volatile-defined">;
+    localMcps: z<NoInfer<({
+        id?: string | null;
+        name?: string | null;
+        description?: string | null;
+        transport?: "http" | "stdio" | null;
+        command?: string | null;
+        args?: string[] | null;
+        env?: import("@deepseek-ai/cosmokit").Dict<string, string> | null;
+        url?: string | null;
+        headers?: import("@deepseek-ai/cosmokit").Dict<string, string> | null;
+        enabled?: boolean | null;
+        selectedTools?: string[] | null;
+        toolNames?: string[] | null;
+    } & import("@deepseek-ai/cosmokit").Dict)[]>, NoInfer<Schemastery.ObjectT<NoInfer<{
+        id: z<string, string, "defined">;
+        name: z<string, string, "defined">;
+        description: z<string, string, "defined">;
+        transport: z<"http" | "stdio", "http" | "stdio", "defined">;
+        command: z<string, string, "plain">;
+        args: z<string[], string[], "plain">;
+        env: z<import("@deepseek-ai/cosmokit").Dict<string, string>, import("@deepseek-ai/cosmokit").Dict<string, string>, "plain">;
+        url: z<string, string, "plain">;
+        headers: z<import("@deepseek-ai/cosmokit").Dict<string, string>, import("@deepseek-ai/cosmokit").Dict<string, string>, "plain">;
         enabled: z<boolean, boolean, "defined">;
         selectedTools: z<string[], string[], "defined">;
         toolNames: z<string[], string[], "defined">;
