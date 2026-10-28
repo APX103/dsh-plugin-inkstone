@@ -11,6 +11,8 @@ import css from './A2aCard.module.css'
 /** The merged inject face: registry panel plus SCP Hub panel. */
 export interface InkstoneFace extends Omit<A2aCardFace, 'hooks'>, Omit<ScpHubPanelFace, 'hooks'> {
   hooks: A2aCardFace['hooks'] & ScpHubPanelFace['hooks']
+  /** Panels this section shows; every panel when omitted. */
+  readonly panels?: readonly PanelId[]
 }
 
 /** Framework-derived props for the A2A agents settings section. */
@@ -24,8 +26,11 @@ function expiryText(expiresAtMs: number): string {
   return new Date(expiresAtMs).toLocaleTimeString()
 }
 
-/** The three panels below the sign-in card. */
-type PanelId = 'agents' | 'scps' | 'skills' | 'builtin'
+/** The panels below the sign-in card. */
+export type PanelId = 'agents' | 'scps' | 'skills' | 'builtin'
+
+/** Every panel, the default when a section omits the list. */
+const ALL_PANELS: readonly PanelId[] = ['agents', 'scps', 'skills', 'builtin']
 
 /**
  * Render the registry sign-in, then the three panels: agent registry, SCP
@@ -41,15 +46,18 @@ export function A2aCard(props: A2aCardProps) {
   const [ak, setAk] = useState('')
   const [sk, setSk] = useState('')
   const [editing, setEditing] = useState(false)
-  const [active, setActive] = useState<PanelId>('agents')
+  const panels = props.panels ?? ALL_PANELS
+  const [active, setActive] = useState<PanelId>(panels[0] ?? 'agents')
   const busy = state.busy !== null || state.rosterBusy
   const panelBusy = panel.mutating !== null || panel.searching !== null
   return (
     <div className={css.section}>
       {state.error !== null ? <p className={css.error} role="alert">{t('errorPrefix')}: {state.error}</p> : null}
       {panel.error !== null ? <p className={css.error} role="alert">{t('errorPrefix')}: {panel.error}</p> : null}
-      <section className={css.card} aria-labelledby={`${headingId}-sso`}>
-        <h3 className={css.cardTitle} id={`${headingId}-sso`}>{t('ssoTitle')}</h3>
+      {panels.includes('agents')
+        ? (
+            <section className={css.card} aria-labelledby={`${headingId}-sso`}>
+              <h3 className={css.cardTitle} id={`${headingId}-sso`}>{t('ssoTitle')}</h3>
         <SsoFacts t={t} state={state} />
         {state.login?.configured === true && !editing
           ? (
@@ -111,9 +119,11 @@ export function A2aCard(props: A2aCardProps) {
                 </div>
               </form>
             )}
-      </section>
+            </section>
+          )
+        : null}
       <div className={css.tabs} role="tablist" aria-label={t('title')}>
-        {(['agents', 'scps', 'skills', 'builtin'] as const).map(id => (
+        {panels.map(id => (
           <button
             key={id}
             type="button"
