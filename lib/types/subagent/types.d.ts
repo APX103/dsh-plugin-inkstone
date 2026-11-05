@@ -7,8 +7,10 @@
 import type { RegistryAuthScheme } from '../registry/index';
 /** One enabled remote A2A agent as the volatile roster describes it. */
 export interface RosterAgent {
-    /** Registry resource name; the STS agent id and the delegation key. */
+    /** Registry machine id (`slug`); the STS agent id and the delegation key. */
     readonly name: string;
+    /** Display name from the registry; absent on rosters written before the slug split. */
+    readonly label?: string;
     /** The data-plane endpoint exactly as discovery returned it. */
     readonly endpointUrl: string;
     /** The resource's `auth_scheme_type`. */

@@ -1,49 +1,35 @@
 /**
- * The A2A subagent provider: bridges one roster agent onto `ctx.subagents` as
- * a SESSION-BACKED one-shot provider. Each delegation composes a fresh
- * in-process child agent (own durable session, zero parent context) whose
- * single capability is the relay tool; the tool performs the remote A2A turn
- * and the provider settles the run from the authoritative remote outcome.
- * The child session keeps the full delegation transcript, so the native
- * subagent catalog can open the round-trip and `@` reference the child.
+ * The A2A subagent provider: one roster agent exposed on `ctx.subagents` as a
+ * REMOTE one-shot backend. A delegation performs exactly one remote A2A turn
+ * and settles from that turn's authoritative outcome.
  *
- * Continuation, ticket refresh, and artifact-aware settlement are unchanged:
- * they key on (parent session, agent) exactly as before.
+ * The provider mints a run id without publishing a local agent, which is the
+ * seam's remote-provider contract: `SubagentRun.localAgent` stays undefined, and
+ * 0.2.2 rejects an external run whose id is already a live agent or session. The
+ * relay-through-a-child-agent design this replaces did exactly that, so every
+ * delegation failed with `DUPLICATE_CHILD` once the runtime started checking.
+ *
+ * Continuation, ticket refresh, and cancellation are keyed on
+ * (parent session, agent) exactly as before.
  *
  * @module dsh-plugin-inkstone/subagent/provider
  */
 
 import { randomUUID } from 'node:crypto'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session'
-import {
-  appendDelegatedPolicyOverrides,
-  applyChildComposition,
-  assertSubagentMaxDepth,
-  captureDelegatedPolicyOverrides,
-  childSessionMeta,
-  resolveChildAgentOptions,
-  resolveChildDepth,
-} from '@deepseek-ai/dsh-subagent'
+import { assertSubagentMaxDepth } from '@deepseek-ai/dsh-subagent'
 import type {
   ResolvedSubagentStartRequest,
-  SubagentDescriptorData,
   SubagentProvider,
   SubagentResult,
   SubagentRun,
 } from '@deepseek-ai/dsh-subagent'
-import type { Context } from '@deepseek-ai/cordis'
-import { createA2aAgent, isInterruptedOutcome } from '../a2a/index'
+import { A2aError, createA2aAgent, isInterruptedOutcome } from '../a2a/index'
 import type { A2aAgent, A2aTurnOutcome } from '../a2a/index'
-import { RELAY_TOOL_NAME, relayToolDefinition } from './relay-tool'
-import type { RelayCell } from './relay-tool'
+import { performRemoteTurn } from './remote-turn'
 import type { A2aContinuation, A2aHeadersSource, RosterAgent } from './types'
-
-/** The delegating parent agent, as the seam's resolved start request carries it. */
-type ParentAgent = ResolvedSubagentStartRequest['parent']
 
 /** Continuation store keyed by parent session id and agent name. */
 export class ContinuationStore {
@@ -115,26 +101,15 @@ export function createA2aProvider(
   }
 }
 
-/** The operational persona appended to (or standing in for) the child's persona. */
-function relayPersona(agent: RosterAgent, consumerPersona: string | undefined): string {
-  const instruction = `You are the local relay for the remote A2A agent "${agent.name}". `
-    + `Call the ${RELAY_TOOL_NAME} tool exactly once, passing the objective text verbatim. `
-    + 'Then repeat the tool\'s answer as your final message, unchanged. '
-    + 'Do not use any other tool and do not add commentary, summaries, or warnings.'
-  return consumerPersona === undefined ? instruction : `${consumerPersona}\n\n${instruction}`
-}
-
 /**
- * Compose one session-backed delegation run: a fresh in-process child agent
- * with the relay tool as its only capability, driven for exactly one turn.
- * Mirrors the harness in-process driver's composition (depth, policy capture,
- * descriptor append) with the A2A relay in place of a local model loop.
+ * Publish one remote run: the result settles from the single remote turn, and
+ * disposal cancels whatever part of that turn is still in flight.
  * @param agent - the roster entry.
  * @param headers - the registry service surface.
  * @param continuations - the shared continuation store.
  * @param agentFactory - injectable client factory.
  * @param request - the resolved one-shot start request.
- * @returns the published run over the child session.
+ * @returns the published run over the remote turn.
  */
 async function startRun(
   agent: RosterAgent,
@@ -144,131 +119,81 @@ async function startRun(
   request: ResolvedSubagentStartRequest,
 ): Promise<SubagentRun> {
   assertSubagentMaxDepth(request.maxDepth)
-  if (request.signal.aborted) throw new Error('subagent request was aborted before child publication')
-  const parent = request.parent
-  const childDepth = resolveChildDepth(parent, request.maxDepth)
-  const childId = brandString<SessionId>(randomUUID())
-  const boundary = SessionLogOffset(0)
-  // Capture before the first await: a later parent switch belongs to the parent's future.
-  const inherited = captureDelegatedPolicyOverrides(parent)
+  if (request.signal.aborted) {
+    throw new Error('subagent request was aborted before the remote turn started')
+  }
   const client = agentFactory({
     endpointUrl: agent.endpointUrl,
     authHeaders: () => headers.agentHeaders(agent.name, agent.authScheme),
   })
-  const cell: RelayCell = {}
-  const parentSessionId = parent.session.id
-
-  const setup = (childCtx: Context, child: ParentAgent): void => {
-    appendDelegatedPolicyOverrides(child.session, inherited)
-    // Register the relay tool before composition so a consumer toolFilter
-    // cannot race the scoped registration; scoped tools sit beside the
-    // global-layer restriction, not under it.
-    childCtx.tools.register(relayToolDefinition({
-      agent,
-      client,
-      headers,
-      continuations,
-      parentSessionId,
-      externalSignal: request.signal,
-      cell,
-    }))
-    applyChildComposition(childCtx, parent, {
-      persona: relayPersona(agent, request.persona),
-      ...(request.toolFilter !== undefined ? { toolFilter: request.toolFilter } : {}),
-    })
-    attachDescriptorAppend(childCtx, request.descriptor)
-  }
-
-  const handle = await parent.ctx.agents.create({
-    sessionId: childId,
-    parentAgent: parent,
-    meta: childSessionMeta(parent, childDepth, false),
-    agentOptions: resolveChildAgentOptions(parent, request.agentOptions, childDepth),
-    signal: request.signal,
-    setup,
-  })
-
-  // Wrap the published child in the single run lifecycle: signal handoff, one
-  // turn, settlement from the authoritative remote outcome, quiescent disposal.
-  const child = handle.agent
-  const flags = { cancelled: false }
+  const parentSessionId = request.parent.session.id
+  const objective = promptText(request.prompt)
+  // The caller's cancellation and disposal share one controller: the runtime
+  // may abort the activation while the remote turn is mid-flight.
+  const controller = new AbortController()
   const onAbort = (): void => {
-    flags.cancelled = true
-    child.cancel({ kind: 'parent' })
+    controller.abort(request.signal.reason)
   }
   request.signal.addEventListener('abort', onAbort, { once: true })
-  // Agent creation detaches its creation-only listener before returning. The
-  // post-registration check closes that handoff without treating an already
-  // published child as a failed start.
-  if (request.signal.aborted) onAbort()
+  if (request.signal.aborted) {
+    onAbort()
+  }
 
   const result: Promise<SubagentResult> = (async () => {
+    if (controller.signal.aborted) {
+      return { output: [], stopReason: 'aborted' }
+    }
     try {
-      if (!flags.cancelled) {
-        child.followup(createUserMessage({ content: request.prompt, source: { kind: 'user' } }))
-        await child.whenIdle()
-      }
-      return settleFromCell(cell, flags.cancelled, agent)
+      const outcome = await performRemoteTurn({
+        client,
+        agentName: agent.name,
+        parentSessionId,
+        objective,
+        signal: controller.signal,
+        headers,
+        continuations,
+      })
+      return settle(outcome, agent)
+    } catch (error: unknown) {
+      return settleFailure(error, agent, controller.signal)
     } finally {
       request.signal.removeEventListener('abort', onAbort)
     }
   })()
 
   return {
-    id: childId,
-    localAgent: child,
+    // A remote run mints its own parent-scoped id; it publishes no local agent,
+    // exactly as the seam's remote-provider contract requires.
+    id: brandString<SessionId>(randomUUID()),
+    localAgent: undefined,
     result,
     async dispose(): Promise<void> {
       request.signal.removeEventListener('abort', onAbort)
-      flags.cancelled = true
-      const settlements = await Promise.allSettled([handle.dispose(), result])
-      const disposal = settlements[0]
-      // The result channel owns run faults; disposal reports only failure to
-      // release the published handle after both operations settle.
-      if (disposal.status === 'rejected') throw disposal.reason
+      controller.abort()
+      // Disposal reaches quiescence: the settled result already swallowed its
+      // own fault, so only the disposal boundary itself can report failure.
+      await result.catch(() => undefined)
     },
   }
 }
 
 /**
- * Settle one run from the relay cell: the remote outcome is authoritative;
- * cancellation and a relay that never ran map onto the seam's vocabulary.
- * @param cell - the relay tool's outcome cell.
- * @param cancelled - whether caller cancellation won.
+ * Map one remote failure onto the seam's stop-reason vocabulary: cancellation
+ * and transport aborts read as `aborted`, everything else as a diagnostic.
+ * @param error - the thrown failure.
  * @param agent - the roster entry.
+ * @param signal - the run's cancellation signal.
  * @returns the settled subagent result.
  */
-function settleFromCell(cell: RelayCell, cancelled: boolean, agent: RosterAgent): SubagentResult {
-  if (cell.outcome !== undefined) {
-    return settle(cell.outcome, agent)
-  }
-  if (cancelled || cell.aborted === true) {
+function settleFailure(error: unknown, agent: RosterAgent, signal: AbortSignal): SubagentResult {
+  if (signal.aborted || error instanceof A2aError && error.code === 'aborted') {
     return { output: [], stopReason: 'aborted' }
   }
-  if (cell.error !== undefined) {
-    return { output: [], diagnostic: cell.error, stopReason: 'error' }
+  if (error instanceof A2aError) {
+    return { output: [], diagnostic: `remote A2A agent "${agent.name}" failed (${error.code}): ${error.message}`, stopReason: 'error' }
   }
-  return {
-    output: [],
-    diagnostic: `the relay agent finished without calling ${RELAY_TOOL_NAME}; the remote agent "${agent.name}" was not consulted`,
-    stopReason: 'error',
-  }
-}
-
-/**
- * Append the one-shot descriptor inside the child's initial turn before its
- * first request (the seam's session-backed provider obligation).
- */
-function attachDescriptorAppend(childCtx: Context, descriptor: SubagentDescriptorData): void {
-  let appended = false
-  childCtx.on('agent/pre-step', async (payload: { agent: ParentAgent }, next) => {
-    const decision = await next()
-    if (!appended && decision.kind === 'enter') {
-      appended = true
-      payload.agent.session.append('subagent/descriptor', descriptor)
-    }
-    return decision
-  })
+  const message = error instanceof Error ? error.message : String(error)
+  return { output: [], diagnostic: `remote A2A agent "${agent.name}" failed: ${message}`, stopReason: 'error' }
 }
 
 /**
@@ -278,16 +203,7 @@ function attachDescriptorAppend(childCtx: Context, descriptor: SubagentDescripto
  * @returns the settled subagent result.
  */
 function settle(outcome: A2aTurnOutcome, agent: RosterAgent): SubagentResult {
-  const output: ContentBlock[] = []
-  if (outcome.text !== '') {
-    output.push({ type: 'text', text: outcome.text })
-  }
-  for (const artifact of outcome.artifacts) {
-    const text = artifact.parts.map(part => part.text).join('')
-    if (text !== '') {
-      output.push({ type: 'text', text })
-    }
-  }
+  const output = answerBlocks(outcome)
   switch (outcome.outcome) {
     case 'completed':
       return { output, stopReason: 'completed' }
@@ -313,6 +229,43 @@ function settle(outcome: A2aTurnOutcome, agent: RosterAgent): SubagentResult {
     default:
       return { output, diagnostic: `remote A2A agent "${agent.name}" ended in state "${outcome.outcome}"`, stopReason: 'error' }
   }
+}
+
+/**
+ * Collect the answer blocks for one outcome: the message text, plus only those
+ * artifact texts that add content. Remote agents that mirror their final
+ * message into a `result` artifact would otherwise render the same answer twice.
+ * @param outcome - the consumed turn outcome.
+ * @returns the ordered text blocks.
+ */
+function answerBlocks(outcome: A2aTurnOutcome): ContentBlock[] {
+  const blocks: ContentBlock[] = []
+  if (outcome.text !== '') {
+    blocks.push({ type: 'text', text: outcome.text })
+  }
+  let accumulated = normalizeText(outcome.text)
+  for (const artifact of outcome.artifacts) {
+    const text = artifact.parts.map(part => part.text).join('')
+    if (text === '') {
+      continue
+    }
+    const candidate = normalizeText(text)
+    if (candidate !== '' && accumulated.includes(candidate)) {
+      continue
+    }
+    blocks.push({ type: 'text', text })
+    accumulated = `${accumulated} ${candidate}`
+  }
+  return blocks
+}
+
+/**
+ * Collapse whitespace so a re-typed copy of the same answer compares equal.
+ * @param text - the raw text.
+ * @returns the comparison form.
+ */
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
 }
 
 /**

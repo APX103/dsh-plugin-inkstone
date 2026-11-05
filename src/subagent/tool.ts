@@ -10,6 +10,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
+import type {
+  ResolvedSubagentStartRequest,
+  SubagentResult,
+} from '@deepseek-ai/dsh-subagent'
 import type { RosterAgent } from './types'
 
 /** Tool configuration surface. */
@@ -18,6 +22,71 @@ export interface A2aToolOptions {
   readonly toolName: string
   /** Absolute delegation-depth cap; a delegation at or beyond it is refused. */
   readonly maxDepth: number
+}
+
+/** The published delegation this tool awaits and disposes. */
+export interface DelegationRun {
+  /** The settled remote outcome. */
+  readonly result: Promise<SubagentResult>
+  /** Release the delegation after the outcome is consumed. */
+  dispose(): Promise<void>
+}
+
+/** The one 0.2.2 activation request shape this tool composes. */
+interface ActivationSpec {
+  provider: string
+  label?: string
+  request: ResolvedSubagentStartRequest
+  signal: AbortSignal
+  /** `caller` keeps the settlement with the awaiting tool instead of the parent inbox. */
+  delivery: 'parent' | 'caller'
+}
+
+/**
+ * The two delegation entry points a harness build may expose. 0.2.1 published
+ * `subagents.start(name, request)`; 0.2.2 replaced it with the provider-addressed
+ * `subagents.startActivation(spec)` receipt, so one tool has to detect which
+ * seam it is running on instead of pinning either name.
+ */
+interface DelegationSeam {
+  start?(name: string, request: ResolvedSubagentStartRequest): Promise<DelegationRun>
+  startActivation?(spec: ActivationSpec): Promise<DelegationRun>
+}
+
+/**
+ * Publish one delegation on whichever seam this harness build exposes.
+ * @param ctx - registrant context carrying the subagent service.
+ * @param provider - the provider name (`a2a/<agent>`).
+ * @param request - prompt, parent, and cancellation.
+ * @returns the published run, awaiting settlement and disposal by the caller.
+ */
+export async function startDelegation(
+  ctx: Context,
+  provider: string,
+  request: Omit<ResolvedSubagentStartRequest, 'descriptor'> & { label?: string },
+): Promise<DelegationRun> {
+  const seam = ctx.subagents as unknown as DelegationSeam
+  // 0.2.1's `start(name, request)` synthesizes the one-shot descriptor and
+  // catalog entry itself; 0.2.2's `startActivation` expects a request the
+  // runtime hands to the provider verbatim. Both accept the same prompt,
+  // parent, and signal, so the seam difference is only the entry point.
+  const resolved = { ...request } as ResolvedSubagentStartRequest
+  if (typeof seam.start === 'function') {
+    return seam.start(provider, resolved)
+  }
+  if (typeof seam.startActivation === 'function') {
+    return seam.startActivation({
+      provider,
+      ...request.label !== undefined ? { label: request.label } : {},
+      request: resolved,
+      signal: request.signal,
+      delivery: 'caller',
+    })
+  }
+  throw new Error(
+    `this DeepSeek Harness build exposes neither subagents.startActivation (0.2.2+) nor ` +
+    `subagents.start (0.2.1); the A2A delegation seam is unavailable`,
+  )
 }
 
 /**
@@ -98,7 +167,7 @@ export function registerA2aTool(ctx: Context, agents: readonly RosterAgent[], op
         throw new Error(`A2A delegation refused at depth ${depth} (cap ${options.maxDepth})`)
       }
       const prompt: ContentBlock[] = [{ type: 'text', text: args.objective }]
-      const run = await ctx.subagents.start(`a2a/${agent.name}`, {
+      const run = await startDelegation(ctx, `a2a/${agent.name}`, {
         prompt,
         parent: exec.agent,
         signal: exec.signal,

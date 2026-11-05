@@ -178,6 +178,88 @@ describe('registerA2aTool', () => {
 
 })
 
+describe('startDelegation on the 0.2.2 activation seam', () => {
+  interface ActivationSpec {
+    provider: string
+    label?: string
+    request: { prompt: readonly { type: string, text: string }[], parent: unknown, descriptor?: { mode: string, provider: string, label?: string } }
+    signal: AbortSignal
+    delivery: string
+  }
+
+  /** Mount the plugin over a fake seam that only exposes `startActivation`. */
+  async function setupActivation(): Promise<{ captured: ReturnType<typeof capture>, tool: ToolDefinition }> {
+    const captured = capture()
+    const ctx = new Context()
+    new MemoryCredentials(ctx)
+    ctx.provide('subagents', {
+      registerProvider: () => () => {},
+      startActivation: async (spec: ActivationSpec) => {
+        captured.specs.push(spec)
+        return {
+          childId: 'child-1',
+          result: Promise.resolve({ output: [{ type: 'text', text: 'remote answer' }], stopReason: 'completed' }),
+          dispose: async () => { captured.disposed += 1 },
+        }
+      },
+    } as never)
+    ctx.provide('a2aRegistry', { agentHeaders: async () => ({}), invalidateTickets: () => {} } as never)
+    ctx.provide('tools', {
+      register: (tool: ToolDefinition) => {
+        captured.tools.set(tool.name, tool)
+        return () => {}
+      },
+    } as never)
+    await ctx.plugin(plugin, { agents: AGENTS, toolName: 'subagent_a2a', maxDepth: 4 } as never)
+    return { captured, tool: captured.tools.get('subagent_a2a')! }
+  }
+
+  function capture(): { specs: ActivationSpec[], disposed: number, tools: Map<string, ToolDefinition> } {
+    return { specs: [], disposed: 0, tools: new Map() }
+  }
+
+  it('addresses the provider through startActivation with a caller-owned settlement', async () => {
+    const { captured, tool } = await setupActivation()
+    const value = await tool.execute({ agent: 'paper-agent', objective: 'write about reefs' }, execFor())
+    expect(value).toEqual({ agent: 'paper-agent', text: 'remote answer' })
+    expect(captured.specs).toHaveLength(1)
+    const spec = captured.specs[0]!
+    expect(spec.provider).toBe('a2a/paper-agent')
+    expect(spec.delivery).toBe('caller')
+    expect(spec.label).toBe('a2a/paper-agent')
+    expect(spec.request.prompt).toEqual([{ type: 'text', text: 'write about reefs' }])
+    expect(captured.disposed).toBe(1)
+  })
+
+  it('still prefers the 0.2.1 start seam when a build exposes both', async () => {
+    const seamCalls: string[] = []
+    const ctx = new Context()
+    new MemoryCredentials(ctx)
+    ctx.provide('subagents', {
+      registerProvider: () => () => {},
+      start: async (name: string) => {
+        seamCalls.push(`start:${name}`)
+        return { result: Promise.resolve({ output: [], stopReason: 'completed' }), dispose: async () => {} }
+      },
+      startActivation: async () => {
+        seamCalls.push('startActivation')
+        return { result: Promise.resolve({ output: [], stopReason: 'completed' }), dispose: async () => {} }
+      },
+    } as never)
+    ctx.provide('a2aRegistry', { agentHeaders: async () => ({}), invalidateTickets: () => {} } as never)
+    const tools = new Map<string, ToolDefinition>()
+    ctx.provide('tools', {
+      register: (tool: ToolDefinition) => {
+        tools.set(tool.name, tool)
+        return () => {}
+      },
+    } as never)
+    await ctx.plugin(plugin, { agents: AGENTS, toolName: 'subagent_a2a', maxDepth: 4 } as never)
+    await tools.get('subagent_a2a')!.execute({ agent: 'paper-agent', objective: 'x' }, execFor())
+    expect(seamCalls).toEqual(['start:a2a/paper-agent'])
+  })
+})
+
 describe('plugin apply with an empty roster', () => {
   it('registers only the bundled academic tools until an agent is enabled', async () => {
     const empty = await setup([])

@@ -12,7 +12,10 @@ import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client';
 import type { Context as ClientContext } from '@deepseek-ai/cordis';
 /** One registry directory agent as the Remote namespace reports it. */
 export interface DirectoryRow {
+    /** Registry machine id (`slug`); the roster key and the STS agent id. */
     readonly name: string;
+    /** Display name the registry reports; equals `name` for registries without slugs. */
+    readonly label: string;
     readonly description: string;
     readonly endpointUrl: string;
     readonly authScheme: string;
@@ -20,7 +23,10 @@ export interface DirectoryRow {
 }
 /** One roster entry as the delegation plugin's configuration stores it. */
 export interface RosterRow {
+    /** Registry machine id (`slug`); the STS agent id. */
     readonly name: string;
+    /** Display name; absent on rosters written before the registry split it from the slug. */
+    readonly label?: string;
     readonly endpointUrl: string;
     readonly authScheme: string;
     readonly description: string;

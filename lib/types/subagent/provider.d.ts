@@ -1,14 +1,16 @@
 /**
- * The A2A subagent provider: bridges one roster agent onto `ctx.subagents` as
- * a SESSION-BACKED one-shot provider. Each delegation composes a fresh
- * in-process child agent (own durable session, zero parent context) whose
- * single capability is the relay tool; the tool performs the remote A2A turn
- * and the provider settles the run from the authoritative remote outcome.
- * The child session keeps the full delegation transcript, so the native
- * subagent catalog can open the round-trip and `@` reference the child.
+ * The A2A subagent provider: one roster agent exposed on `ctx.subagents` as a
+ * REMOTE one-shot backend. A delegation performs exactly one remote A2A turn
+ * and settles from that turn's authoritative outcome.
  *
- * Continuation, ticket refresh, and artifact-aware settlement are unchanged:
- * they key on (parent session, agent) exactly as before.
+ * The provider mints a run id without publishing a local agent, which is the
+ * seam's remote-provider contract: `SubagentRun.localAgent` stays undefined, and
+ * 0.2.2 rejects an external run whose id is already a live agent or session. The
+ * relay-through-a-child-agent design this replaces did exactly that, so every
+ * delegation failed with `DUPLICATE_CHILD` once the runtime started checking.
+ *
+ * Continuation, ticket refresh, and cancellation are keyed on
+ * (parent session, agent) exactly as before.
  *
  * @module dsh-plugin-inkstone/subagent/provider
  */

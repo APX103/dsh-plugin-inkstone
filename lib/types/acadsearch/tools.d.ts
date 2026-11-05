@@ -10,7 +10,12 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { PaperHit, SourceDeps } from './sources';
 /** Source ids usable by the aggregate tool. */
 export type AcademicSourceId = PaperHit['source'];
-/** All known source ids in aggregate order. */
+/**
+ * All known source ids, in aggregate priority order. The aggregate interleaves
+ * in this order, so a source listed first leads every round and wins the record
+ * when another source reports the same DOI. OpenAlex leads: it is the broadest
+ * index and its records carry venue, DOI, and landing URL together.
+ */
 export declare const ACADEMIC_SOURCES: readonly AcademicSourceId[];
 /** Options for {@link registerAcademicSearchTools}. */
 export interface AcademicSearchOptions extends SourceDeps {
