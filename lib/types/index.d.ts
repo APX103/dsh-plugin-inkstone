@@ -67,12 +67,12 @@ export interface Config extends DelegationConfig {
     maxSelectedTools: number;
     /** Aggregate academic search sources; single-source tools stay registered. */
     enabledAcademicSources: Volatile<string[]>;
-    /** Polite-pool contact for Crossref/OpenAlex; empty sends none. */
-    academicMailto: string;
-    /** Optional OpenAlex premium key; free tier needs only the mailto. */
-    openalexApiKey: string;
+    /** Polite-pool contact for Crossref; OpenAlex ignores it (keys replaced that pool). */
+    academicMailto: Volatile<string>;
+    /** Optional OpenAlex key; free to create, raises the keyless daily budget 10x. */
+    openalexApiKey: Volatile<string>;
     /** Optional NCBI API key for PubMed E-utilities (10x rate headroom). */
-    ncbiApiKey: string;
+    ncbiApiKey: Volatile<string>;
 }
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     registryBaseUrl: z<string, string, "defined">;
@@ -159,7 +159,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     maxToolServers: z<number, number, "defined">;
     maxSelectedTools: z<number, number, "defined">;
     enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, "volatile-defined">;
-    academicMailto: z<string, string, "defined">;
+    academicMailto: z<string, string, "volatile-defined">;
     openalexApiKey: z<string, string, "volatile-defined">;
     ncbiApiKey: z<string, string, "volatile-defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
@@ -247,7 +247,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     maxToolServers: z<number, number, "defined">;
     maxSelectedTools: z<number, number, "defined">;
     enabledAcademicSources: z<NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, NoInfer<("arxiv" | "crossref" | "openalex" | "pubmed" | "europepmc" | "biorxiv")[]>, "volatile-defined">;
-    academicMailto: z<string, string, "defined">;
+    academicMailto: z<string, string, "volatile-defined">;
     openalexApiKey: z<string, string, "volatile-defined">;
     ncbiApiKey: z<string, string, "volatile-defined">;
 }>>, "plain">;

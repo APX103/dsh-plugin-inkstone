@@ -2,7 +2,10 @@
  * Open academic source clients for the bundled search tools: arXiv (Atom),
  * Crossref (REST), and OpenAlex (REST). Every client is fetch-injectable,
  * returns normalized paper hits, and never embeds credentials — all three
- * APIs are open (optional polite-pool mailto only).
+ * APIs are open. Crossref honors an optional polite-pool mailto; OpenAlex
+ * dropped its mailto polite pool in February 2026 (the parameter is now
+ * ignored) and meters keyless requests against a small daily credit budget,
+ * so only an API key helps there.
  *
  * @module dsh-plugin-inkstone/acadsearch/sources
  */
@@ -31,18 +34,23 @@ export type Recency = 'day' | 'week' | 'month' | 'year';
 export interface SourceDeps {
     /** Fetch implementation (injectable for tests). */
     readonly fetchImpl: typeof fetch;
-    /** Optional polite-pool contact address appended to Crossref/OpenAlex. */
+    /** Optional polite-pool contact address; Crossref honors it, OpenAlex ignores it. */
     readonly mailto?: string | undefined;
-    /** Optional OpenAlex premium key sent as api_key; free tier uses mailto only. */
+    /** Optional OpenAlex key sent as api_key; a free key raises the daily budget 10x. */
     readonly openalexApiKey?: string | undefined;
     /** Optional NCBI API key appended to E-utilities calls (10x rate headroom). */
     readonly ncbiApiKey?: string | undefined;
 }
-/** Source failure surfaced to callers with the source id attached. */
+/**
+ * Source failure surfaced to callers with the source id attached. The message
+ * carries the prefix for a bare throw; {@link reason} carries the bare text so
+ * the aggregate can add the prefix exactly once.
+ */
 export declare class SourceError extends Error {
     readonly source: PaperHit['source'];
+    readonly reason: string;
     readonly cause?: unknown | undefined;
-    constructor(source: PaperHit['source'], message: string, cause?: unknown | undefined);
+    constructor(source: PaperHit['source'], reason: string, cause?: unknown | undefined);
 }
 /**
  * Search PubMed via E-utilities: esearch for PMIDs, then efetch for the
@@ -91,9 +99,12 @@ export declare function searchArxiv(query: string, count: number, deps: SourceDe
 export declare function searchCrossref(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]>;
 /**
  * Search OpenAlex via the works endpoint (relevance-ranked).
+ * The mailto polite pool was replaced by API keys in February 2026, so the
+ * key is the only credential worth sending: mailto is ignored upstream and
+ * keyless requests spend a small daily credit budget.
  * @param query - free-text search query.
  * @param count - requested per-page results.
- * @param deps - fetch dependencies (mailto enters the polite pool when set).
+ * @param deps - fetch dependencies (the key raises the daily budget 10x).
  * @returns normalized hits.
  */
 export declare function searchOpenAlex(query: string, count: number, deps: SourceDeps): Promise<PaperHit[]>;

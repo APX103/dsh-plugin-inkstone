@@ -1,8 +1,7 @@
 /**
  * One remote A2A delegation turn: continuation lookup, ticket-refresh replay,
  * and stream-recovery snapshot. Pure orchestration over the A2A client with no
- * harness types, shared by the relay tool that now performs the delegation
- * inside the session-backed child agent.
+ * harness types, shared by the provider that performs the delegation.
  *
  * @module dsh-plugin-inkstone/subagent/remote-turn
  */

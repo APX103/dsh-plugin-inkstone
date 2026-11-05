@@ -10,8 +10,16 @@ import type { RegistryAuthScheme } from './sts';
 export declare const MCP_PATH = "/mcp";
 /** One A2A agent as the registry directory reports it. */
 export interface RegistryAgentEntry {
-    /** Registry resource name; the STS agent id and roster key. */
+    /**
+     * Registry machine id — the top-level `slug` when the registry reports one,
+     * otherwise its `name` (registries older than the slug split). The STS agent
+     * id, the roster key, and the provider id all use this value.
+     */
     readonly name: string;
+    /** Display name the registry reports; equals {@link name} when it predates slugs. */
+    readonly label: string;
+    /** Immutable registry primary key, when the registry reports one. */
+    readonly id: number | undefined;
     /** Registry resource URI, for example `agent://weather-agent`. */
     readonly uri: string | undefined;
     /** Human-readable description; empty when the registry omits it. */
