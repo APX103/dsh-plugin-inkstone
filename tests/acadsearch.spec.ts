@@ -131,6 +131,33 @@ describe('academic sources', () => {
     expect(hits[0]!.url).toBe('https://pubmed.ncbi.nlm.nih.gov/39001234/')
   })
 
+  it('decodes named and numeric character references instead of leaking them', async () => {
+    // Crossref reports venues with escaped ampersands; shown raw they read "&amp;".
+    const crossref: SourceDeps = {
+      fetchImpl: (async () => jsonResponse({ message: { items: [{
+        DOI: '10.1000/amp',
+        title: ['Safety &amp; Alignment'],
+        'container-title': ['Robotics &amp; Safety'],
+      }] } })) as unknown as typeof fetch,
+    }
+    const crossrefHits = await searchCrossref('x', 1, crossref)
+    expect(crossrefHits[0]!.title).toBe('Safety & Alignment')
+    expect(crossrefHits[0]!.venue).toBe('Robotics & Safety')
+
+    // PubMed spells non-ASCII author names as hex or decimal character references.
+    const efetch = `<?xml version="1.0"?><PubmedArticleSet><PubmedArticle><MedlineCitation><PMID>1</PMID><Article>
+<ArticleTitle>Study</ArticleTitle>
+<AuthorList><Author><LastName>Bj&#xf6;rstr&#246;m</LastName><ForeName>Erik</ForeName></Author></AuthorList>
+<Journal><Title>J</Title></Journal></Article></MedlineCitation></PubmedArticle></PubmedArticleSet>`
+    const pubmed: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => (
+        String(input).includes('esearch') ? jsonResponse({ esearchresult: { idlist: ['1'] } }) : new Response(efetch)
+      )) as unknown as typeof fetch,
+    }
+    const pubmedHits = await searchPubmed('x', 1, pubmed)
+    expect(pubmedHits[0]!.authors).toEqual(['Erik Björström'])
+  })
+
   it('maps EuropePMC records including PMID links and author strings', async () => {
     const deps: SourceDeps = {
       fetchImpl: (async () => jsonResponse({ resultList: { result: [{
@@ -173,7 +200,7 @@ describe('academic sources', () => {
     expect(hits[0]!.published).toBe('2024-01-01')
   })
 
-  it('retries once after a 429 and sends api_key and mailto to OpenAlex', async () => {
+  it('retries once after a 429 and authenticates OpenAlex with the key alone', async () => {
     const urls: string[] = []
     let attempts = 0
     const deps: SourceDeps = {
@@ -191,7 +218,58 @@ describe('academic sources', () => {
     expect(hits).toHaveLength(1)
     const url = new URL(urls[1]!)
     expect(url.searchParams.get('api_key')).toBe('premium-key')
-    expect(url.searchParams.get('mailto')).toBe('team@example.org')
+    // OpenAlex dropped the mailto polite pool in Feb 2026; sending it would be dead weight.
+    expect(url.searchParams.get('mailto')).toBeNull()
+  })
+
+  it('sends neither api_key nor mailto to OpenAlex when no key is configured', async () => {
+    const urls: string[] = []
+    const deps: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => {
+        urls.push(String(input))
+        return jsonResponse({ results: [] })
+      }) as unknown as typeof fetch,
+      mailto: 'team@example.org',
+    }
+    await searchOpenAlex('reefs', 3, deps)
+    const url = new URL(urls[0]!)
+    expect(url.searchParams.has('api_key')).toBe(false)
+    expect(url.searchParams.has('mailto')).toBe(false)
+  })
+
+  it('retries a gateway 504 once before surfacing the failure', async () => {
+    let attempts = 0
+    const deps: SourceDeps = {
+      fetchImpl: (async () => {
+        attempts += 1
+        if (attempts === 1) return new Response('gateway timeout', { status: 504, headers: { 'retry-after': '0' } })
+        return jsonResponse({ message: { items: [{ DOI: '10.1000/x', title: ['After the gateway'] }] } })
+      }) as unknown as typeof fetch,
+    }
+    const hits = await searchCrossref('reefs', 3, deps)
+    expect(attempts).toBe(2)
+    expect(hits[0]!.title).toBe('After the gateway')
+  })
+
+  it('surfaces a spent daily budget without retrying, and names the reset', async () => {
+    let attempts = 0
+    const deps: SourceDeps = {
+      fetchImpl: (async () => {
+        attempts += 1
+        return new Response('budget exhausted', { status: 429, headers: { 'x-ratelimit-remaining': '0' } })
+      }) as unknown as typeof fetch,
+    }
+    await expect(searchOpenAlex('reefs', 3, deps)).rejects.toThrow(/daily budget is spent.*midnight UTC/)
+    // The reset is at UTC midnight: a millisecond-scale retry cannot help.
+    expect(attempts).toBe(1)
+  })
+
+  it('names the key when OpenAlex rejects it', async () => {
+    const deps: SourceDeps = {
+      fetchImpl: (async () => new Response('nope', { status: 401 })) as unknown as typeof fetch,
+    }
+    // A rejected key is not transient, so it must not be retried either.
+    await expect(searchOpenAlex('reefs', 3, deps)).rejects.toThrow(/API key was rejected.*openalexApiKey/)
   })
 
   it('retries arXiv once after a 429', async () => {
@@ -285,9 +363,74 @@ describe('registerAcademicSearchTools', () => {
     const aggregate = registered.find(definition => definition.name === 'academic_search')!
     const result = await aggregate.execute({ query: 'shared', count: 2 }, { signal: new AbortController().signal } as never) as AcademicSearchResult
     expect(result.hits).toHaveLength(2)
-    expect(result.hits.map(hit => hit.title)).toEqual(['Shared paper', 'Only in OpenAlex'])
-    expect(result.hits[0]!.source).toBe('arxiv')
+    // OpenAlex leads the priority order, so its record comes first and wins the
+    // DOI tie against Crossref's copy of the same paper.
+    expect(result.hits.map(hit => hit.title)).toEqual(['Only in OpenAlex', 'Shared paper'])
+    expect(result.hits[0]!.source).toBe('openalex')
+    expect(result.hits[1]!.source).toBe('arxiv')
     expect(result.sourceErrors).toBeUndefined()
+  })
+
+  it('interleaves sources so one high-volume source cannot fill every slot', async () => {
+    const entries = ['A1', 'A2', 'A3']
+      .map((title, index) => `<entry><id>http://arxiv.org/abs/${index}</id><title>${title}</title><summary>s</summary><published>2024-02-0${index + 1}T00:00:00Z</published></entry>`)
+      .join('')
+    const deps: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => {
+        const url = String(input)
+        if (url.includes('export.arxiv.org')) return new Response(`<?xml version="1.0"?><feed>${entries}</feed>`)
+        if (url.includes('api.crossref.org')) return jsonResponse({ message: { items: [{ DOI: '10.1/c', title: ['C1'] }] } })
+        if (url.includes('api.openalex.org')) return jsonResponse({ results: [{ id: 'https://openalex.org/W1', display_name: 'O1' }] })
+        return new Response('not found', { status: 404 })
+      }) as unknown as typeof fetch,
+    }
+    const { ctx, registered } = fakeCtx()
+    registerAcademicSearchTools(ctx, { enabledSources: ['arxiv', 'crossref', 'openalex'], fetchImpl: deps.fetchImpl })
+    const aggregate = registered.find(definition => definition.name === 'academic_search')!
+    const result = await aggregate.execute({ query: 'x', count: 4 }, { signal: new AbortController().signal } as never) as AcademicSearchResult
+    // arXiv alone had three hits and used to take all four slots; OpenAlex leads
+    // each round, so its single hit comes first.
+    expect(result.hits.map(hit => hit.title)).toEqual(['O1', 'A1', 'C1', 'A2'])
+  })
+
+  it('fills a missing abstract from a lower-priority duplicate', async () => {
+    const deps: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => {
+        const url = String(input)
+        // OpenAlex owns the record but ships no abstract; Crossref has both.
+        if (url.includes('api.openalex.org')) return jsonResponse({ results: [{ id: 'https://openalex.org/W7', display_name: 'Same work', doi: 'https://doi.org/10.9/same' }] })
+        if (url.includes('api.crossref.org')) return jsonResponse({ message: { items: [{ DOI: '10.9/same', title: ['Same work'], abstract: 'Crossref kept the abstract.' }] } })
+        return new Response('not found', { status: 404 })
+      }) as unknown as typeof fetch,
+    }
+    const { ctx, registered } = fakeCtx()
+    registerAcademicSearchTools(ctx, { enabledSources: ['openalex', 'crossref'], fetchImpl: deps.fetchImpl })
+    const aggregate = registered.find(definition => definition.name === 'academic_search')!
+    const result = await aggregate.execute({ query: 'x', count: 5 }, { signal: new AbortController().signal } as never) as AcademicSearchResult
+    expect(result.hits).toHaveLength(1)
+    expect(result.hits[0]!.source).toBe('openalex')
+    expect(result.hits[0]!.abstract).toBe('Crossref kept the abstract.')
+  })
+
+  it('returns lossless JSON: no hit carries an own undefined-valued key', async () => {
+    // An entry with neither DOI, venue, nor a parseable date — the shape that
+    // used to fail the Host's whole tool result as "not lossless JSON".
+    const bare = '<?xml version="1.0"?><feed><entry><id>http://arxiv.org/abs/3</id><title>Bare</title><summary>s</summary></entry></feed>'
+    const deps: SourceDeps = {
+      fetchImpl: (async (input: string | URL | Request) => (
+        String(input).includes('export.arxiv.org') ? new Response(bare) : new Response('not found', { status: 404 })
+      )) as unknown as typeof fetch,
+    }
+    const { ctx, registered } = fakeCtx()
+    registerAcademicSearchTools(ctx, { enabledSources: ['arxiv'], fetchImpl: deps.fetchImpl })
+    for (const name of ['academic_search', 'search_arxiv']) {
+      const tool = registered.find(definition => definition.name === name)!
+      const result = await tool.execute({ query: 'bare' }, { signal: new AbortController().signal } as never) as AcademicSearchResult
+      expect(result.hits).toHaveLength(1)
+      const hit = result.hits[0]!
+      expect(Object.keys(hit).sort()).toEqual(['abstract', 'authors', 'source', 'title', 'url'])
+      for (const value of Object.values(hit)) expect(value).not.toBeUndefined()
+    }
   })
 
   it('records per-source failures and throws only when every source failed', async () => {
@@ -306,6 +449,8 @@ describe('registerAcademicSearchTools', () => {
     const partial = await aggregate.execute({ query: 'x' }, { signal: new AbortController().signal } as never) as AcademicSearchResult
     expect(partial.hits).toHaveLength(1)
     expect(Object.keys(partial.sourceErrors ?? {})).toEqual(['crossref'])
+    // The aggregate adds the source prefix, so the reason must not already carry it.
+    expect(partial.sourceErrors!.crossref).toBe('HTTP 500')
 
     const allDown: SourceDeps = {
       fetchImpl: (async () => new Response('down', { status: 500 })) as unknown as typeof fetch,
@@ -323,6 +468,19 @@ describe('registerAcademicSearchTools', () => {
     const arxiv = registered.find(definition => definition.name === 'search_arxiv')!
     await expect(arxiv.execute({ query: '' }, { signal: new AbortController().signal } as never)).rejects.toThrow('query')
     await expect(arxiv.execute({ query: 'x', count: 0 }, { signal: new AbortController().signal } as never)).rejects.toThrow('count')
+    expect(calls).toEqual([])
+  })
+
+  it('enforces the declared cap: ten for the aggregate, twenty for one source', async () => {
+    const { deps, calls } = cannedFetch({})
+    const { ctx, registered } = fakeCtx()
+    registerAcademicSearchTools(ctx, { enabledSources: ['arxiv'], fetchImpl: deps.fetchImpl })
+    const aggregate = registered.find(definition => definition.name === 'academic_search')!
+    const arxiv = registered.find(definition => definition.name === 'search_arxiv')!
+    const exec = { signal: new AbortController().signal } as never
+    // The schema advertises 1-10 for the aggregate; validation has to agree.
+    await expect(aggregate.execute({ query: 'x', count: 11 }, exec)).rejects.toThrow('between 1 and 10')
+    await expect(arxiv.execute({ query: 'x', count: 21 }, exec)).rejects.toThrow('between 1 and 20')
     expect(calls).toEqual([])
   })
 })

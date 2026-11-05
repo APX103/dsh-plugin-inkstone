@@ -210,7 +210,7 @@ function AgentsPanel({ t, face, state, busy, headingId }: { t: CardLocale, face:
           ? <p className={css.hint}>{state.directoryLoading ? t('loading') : t('directoryEmpty')}</p>
           : <ul className={css.rows}>
             {state.directory.map(row => (
-              <AgentRow key={row.name} name={row.name} scheme={row.authScheme} description={row.description}
+              <AgentRow key={row.name} name={row.name} label={row.label} scheme={row.authScheme} description={row.description}
                 added={state.roster.some(entry => entry.name === row.name)}
                 actions={added => added
                   ? <Tag tone="neutral">{t('inRoster')}</Tag>
@@ -231,7 +231,7 @@ function AgentsPanel({ t, face, state, busy, headingId }: { t: CardLocale, face:
             ? <p className={css.hint}>{t('rosterEmpty')}</p>
             : <ul className={css.rows}>
               {state.roster.map(row => (
-                <AgentRow key={row.name} name={row.name} scheme={row.authScheme} description={row.description} added={false}
+                <AgentRow key={row.name} name={row.name} label={row.label} scheme={row.authScheme} description={row.description} added={false}
                   actions={() => (
                     <>
                       <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void face.setRosterEnabled(row.name, !row.enabled) }}>
@@ -479,8 +479,9 @@ function CatalogSearch({ t, searching, keyword, onSearch }: { t: CardLocale, sea
  * One agent registry row: identity, scheme tag, description, and the trailing
  * action.
  */
-function AgentRow({ name, scheme, description, added, actions }: {
+function AgentRow({ name, label, scheme, description, added, actions }: {
   name: string
+  label?: string | undefined
   scheme: string
   description: string
   added: boolean
@@ -489,7 +490,7 @@ function AgentRow({ name, scheme, description, added, actions }: {
   return (
     <li className={css.row}>
       <div className={css.rowIdentity}>
-        <span className={css.rowName}>{name}</span>
+        <span className={css.rowName} title={name}>{label ?? name}</span>
         <Tag tone="neutral">{scheme}</Tag>
       </div>
       <p className={css.rowDescription} title={description}>{description}</p>

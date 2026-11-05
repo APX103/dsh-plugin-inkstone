@@ -37,6 +37,8 @@ function statusView(state: RegistryLoginState): A2aStatusView {
 function agentView(entry: RegistryAgentEntry): A2aAgentView {
   return {
     name: entry.name,
+    label: entry.label,
+    id: entry.id ?? null,
     uri: entry.uri ?? null,
     description: entry.description,
     endpointUrl: entry.endpointUrl,

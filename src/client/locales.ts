@@ -90,6 +90,7 @@ export type A2aSettingsLocaleKey =
   | 'acadSaved'
   | 'acadRejected'
   | 'acadUnavailable'
+  | 'acadReadonly'
   | 'sourceArxiv'
   | 'sourceCrossref'
   | 'sourceOpenalex'
@@ -175,16 +176,17 @@ export const en: Record<A2aSettingsLocaleKey, string> = {
   remoteTitle: 'Inkstone · Remote',
   localTitle: 'Inkstone · Local',
   acadTitle: 'Academic Search',
-  acadSummary: 'Aggregated academic search queries arXiv, Crossref, and OpenAlex — open APIs, no credentials required. Disabled sources drop out of the aggregate; single-source tools stay available.',
+  acadSummary: 'Aggregated academic search queries arXiv, Crossref, and OpenAlex — open APIs, no credentials required. An OpenAlex key is optional but raises its small daily budget 10x. Disabled sources drop out of the aggregate; single-source tools stay available.',
   acadSources: 'Aggregate sources',
   acadMailto: 'Contact email (optional)',
-  acadMailtoHint: 'Enters the Crossref/OpenAlex polite pool; left empty sends none',
+  acadMailtoHint: 'Enters the Crossref polite pool; OpenAlex ignores it. Left empty sends none',
   acadOpenAlexKey: 'OpenAlex API key (optional)',
-  acadOpenAlexKeyHint: 'Premium accounts only; free tier uses the contact email',
+  acadOpenAlexKeyHint: 'Free to create — raises the OpenAlex daily budget 10x; keyless requests get a small one',
   acadSave: 'Save',
   acadSaved: 'Saved',
   acadRejected: 'The change was not accepted — reopen this page and try again.',
   acadUnavailable: 'Unavailable — the plugin configuration is not served right now.',
+  acadReadonly: 'This window cannot write settings — open the settings page in the app window.',
   sourceArxiv: 'arXiv (preprints)',
   sourceCrossref: 'Crossref (DOI metadata)',
   sourceOpenalex: 'OpenAlex (scholarly index)',
@@ -271,16 +273,17 @@ export const zh: Record<A2aSettingsLocaleKey, string> = {
   remoteTitle: '端砚 · Remote',
   localTitle: '端砚 · 本地',
   acadTitle: '学术检索',
-  acadSummary: '聚合学术检索查询 arXiv、Crossref 与 OpenAlex——全部开放 API，无需凭据。关闭的源不参与聚合，单源工具仍然可用。',
+  acadSummary: '聚合学术检索查询 arXiv、Crossref 与 OpenAlex——全部开放 API，无需凭据。OpenAlex 的 Key 可选，但能把很小的每日预算提升 10 倍。关闭的源不参与聚合，单源工具仍然可用。',
   acadSources: '聚合源',
   acadMailto: '联系邮箱（可选）',
-  acadMailtoHint: '进入 Crossref/OpenAlex 礼貌池；留空则不携带',
+  acadMailtoHint: '进入 Crossref 礼貌池；OpenAlex 已废弃该参数。留空则不携带',
   acadOpenAlexKey: 'OpenAlex API Key（可选）',
-  acadOpenAlexKeyHint: '仅高级账户需要；免费档填联系邮箱即可',
+  acadOpenAlexKeyHint: '可免费申请——每日预算提升 10 倍；不填则只有很小的免 Key 预算',
   acadSave: '保存',
   acadSaved: '已保存',
   acadRejected: '修改未被接受——请重新打开本页再试。',
   acadUnavailable: '暂不可用——插件配置当前未在服务。',
+  acadReadonly: '当前窗口无法写入配置——请在应用窗口内打开设置页。',
   sourceArxiv: 'arXiv（预印本）',
   sourceCrossref: 'Crossref（DOI 元数据）',
   sourceOpenalex: 'OpenAlex（学术索引）',

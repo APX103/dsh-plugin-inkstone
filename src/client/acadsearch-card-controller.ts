@@ -13,6 +13,11 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 /** The three bundled open sources, in aggregate order. */
 export const ACADEMIC_SOURCE_IDS = ['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv'] as const
 
+/** Readable text for a rejecting write; transport failures carry the reason. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 /** One academic source as the toggle row renders it. */
 export interface AcademicSourceRow {
   readonly id: (typeof ACADEMIC_SOURCE_IDS)[number]
@@ -116,18 +121,21 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
     hooks: { acadSearch: store },
     async toggleSource(id, enabled) {
       const current = form.getSnapshot()
-      if (current.status !== 'ready' || !current.writable) return
+      if (current.status !== 'ready' || !current.writable) {
+        publish(current.writable ? 'unavailable' : 'readonly')
+        return
+      }
       const next = draft.sources.map(row => row.id === id ? { ...row, enabled } : row)
       draft = { ...draft, sources: next }
       publish(null, true)
-      const accepted = await form.set('enabledAcademicSources', next.filter(row => row.enabled).map(row => row.id))
-      if (!accepted) {
+      try {
+        const accepted = await form.set('enabledAcademicSources', next.filter(row => row.enabled).map(row => row.id))
         draft = readDraft()
-        publish('rejected')
-        return
+        publish(accepted ? null : 'rejected')
+      } catch (error: unknown) {
+        draft = readDraft()
+        publish(errorMessage(error))
       }
-      draft = readDraft()
-      publish(null)
     },
     async setMailto(value) {
       draft = { ...draft, mailto: value }
@@ -143,19 +151,31 @@ export function AcadSearchCardController(_ctx: ClientContext, form: ConfigForm<A
     },
     async saveAcad() {
       const current = form.getSnapshot()
-      if (current.status !== 'ready' || !current.writable) return false
-      publish(null, true)
-      const accepted = await form.set('academicMailto', draft.mailto.trim())
-        && await form.set('openalexApiKey', draft.openalexApiKey.trim())
-        && await form.set('ncbiApiKey', draft.ncbiApiKey.trim())
-      if (!accepted) {
-        draft = readDraft()
-        publish('rejected')
+      if (current.status !== 'ready' || !current.writable) {
+        // Not a refusal from the Host: this page never got a writable view.
+        publish(current.writable ? 'unavailable' : 'readonly')
         return false
       }
-      draft = readDraft()
-      publish(null)
-      return true
+      publish(null, true)
+      // One atomic mutation: a partial save would write the mailto but not the
+      // keys whenever a later field is refused.
+      const ops: Parameters<typeof form.mutate>[0] = [
+        { op: 'set', path: ['academicMailto'], value: draft.mailto.trim() },
+        { op: 'set', path: ['openalexApiKey'], value: draft.openalexApiKey.trim() },
+        { op: 'set', path: ['ncbiApiKey'], value: draft.ncbiApiKey.trim() },
+      ]
+      try {
+        const accepted = await form.mutate(ops)
+        draft = readDraft()
+        publish(accepted ? null : 'rejected')
+        return accepted
+      } catch (error: unknown) {
+        // Transport failures reject instead of answering false; never leave the
+        // save silently hanging with the button disabled.
+        draft = readDraft()
+        publish(errorMessage(error))
+        return false
+      }
     },
     dispose(): void {
       unsubscribe()

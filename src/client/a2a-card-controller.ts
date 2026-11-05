@@ -17,7 +17,10 @@ const DIRECTORY_RETRY_DELAY_MS = 1500
 
 /** One registry directory agent as the Remote namespace reports it. */
 export interface DirectoryRow {
+  /** Registry machine id (`slug`); the roster key and the STS agent id. */
   readonly name: string
+  /** Display name the registry reports; equals `name` for registries without slugs. */
+  readonly label: string
   readonly description: string
   readonly endpointUrl: string
   readonly authScheme: string
@@ -26,7 +29,10 @@ export interface DirectoryRow {
 
 /** One roster entry as the delegation plugin's configuration stores it. */
 export interface RosterRow {
+  /** Registry machine id (`slug`); the STS agent id. */
   readonly name: string
+  /** Display name; absent on rosters written before the registry split it from the slug. */
+  readonly label?: string
   readonly endpointUrl: string
   readonly authScheme: string
   readonly description: string
@@ -107,8 +113,10 @@ function rosterRowOf(value: unknown): RosterRow | undefined {
   if (name === '' || endpointUrl === '') {
     return undefined
   }
+  const label = typeof record.label === 'string' && record.label !== '' ? record.label : undefined
   return {
     name,
+    ...(label === undefined ? {} : { label }),
     endpointUrl,
     authScheme,
     description: typeof record.description === 'string' ? record.description : '',
@@ -187,7 +195,7 @@ export class A2aCardController {
           ? rows
           : [
             ...rows,
-            { name: row.name, endpointUrl: row.endpointUrl, authScheme: row.authScheme, description: row.description, enabled: true },
+            { name: row.name, label: row.label, endpointUrl: row.endpointUrl, authScheme: row.authScheme, description: row.description, enabled: true },
           ]),
       setRosterEnabled: (name: string, enabled: boolean) => this.#writeRoster(rows =>
         rows.map(row => row.name === name ? { ...row, enabled } : row)),
@@ -254,6 +262,7 @@ export class A2aCardController {
         error: null,
         directory: result.value.map(row => ({
           name: row.name,
+          label: row.label,
           description: row.description,
           endpointUrl: row.endpointUrl,
           authScheme: row.authScheme,
@@ -291,6 +300,7 @@ export class A2aCardController {
     try {
       const accepted = await this.#rosterForm.set('agents', rows.map(row => ({
         name: row.name,
+        ...(row.label === undefined ? {} : { label: row.label }),
         endpointUrl: row.endpointUrl,
         authScheme: row.authScheme,
         description: row.description,
