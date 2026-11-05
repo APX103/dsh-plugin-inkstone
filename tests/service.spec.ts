@@ -35,6 +35,9 @@ function core(store = memoryStore()): RegistryClientCore & { store: RegistryCred
   return Object.assign(client, { store })
 }
 
+/** STS request bodies the fake registry saw, in order. */
+const stsBodies: Array<Record<string, unknown>> = []
+
 /** Serves the SSO handshake (with signature check), STS exchange, and MCP directory. */
 const registryFetch: typeof fetch = async (input, init) => {
   const url = String(input)
@@ -50,6 +53,7 @@ const registryFetch: typeof fetch = async (input, init) => {
     return jsonResponse({ msg: 'ok', data: { jwt: 'jwt-ok', refresh_token: 'r', expiration: String(Math.floor(Date.now() / 1000) + 3600), sso_uid: 'uid-1' } })
   }
   if (url === `${REGISTRY}/api/v1/a2a/sts/token`) {
+    stsBodies.push(body)
     return jsonResponse({ code: 0, data: { access_token: 'ticket-1', token_type: 'Bearer' } })
   }
   if (url === `${REGISTRY}/mcp`) {
@@ -61,7 +65,7 @@ const registryFetch: typeof fetch = async (input, init) => {
       return jsonResponse({
         jsonrpc: '2.0',
         id: body.id,
-        result: { content: [{ type: 'text', text: JSON.stringify({ results: [{ uri: 'agent://p', kind: 'a2a', name: 'paper-agent', endpoint_url: 'https://paper.test/a2a', auth_scheme_type: 'orbit_jwt' }] }) }] },
+        result: { content: [{ type: 'text', text: JSON.stringify({ results: [{ uri: 'agent://paper-agent', id: 3, kind: 'a2a', name: 'Paper Agent', slug: 'paper-agent', endpoint_url: 'https://paper.test/a2a', auth_scheme_type: 'orbit_jwt' }] }) }] },
       })
     }
     return new Response(null, { status: 202 })
@@ -88,16 +92,20 @@ describe('RegistryClientCore', () => {
   })
 
   it('logs in, discovers the directory, and resolves agent headers', async () => {
+    stsBodies.length = 0
     const client = core()
     await client.login('ak', GOOD_SK)
     expect(client.store.dump().get('a2a-registry/openxlab')).toMatchObject({ kind: 'grant' })
     await expect(client.status()).resolves.toMatchObject({ configured: true, authenticated: true, userId: 'uid-1' })
     const entries = await client.discover()
-    expect(entries.map(entry => entry.name)).toEqual(['paper-agent'])
+    // The registry reports a display name plus the machine slug; the machine id
+    // is what STS resolves, so it must be the one carried forward.
+    expect(entries.map(entry => [entry.name, entry.label, entry.id])).toEqual([['paper-agent', 'Paper Agent', 3]])
     await expect(client.agentHeaders('paper-agent', 'orbit_jwt')).resolves.toEqual({
       Authorization: 'Bearer ticket-1',
       'X-User-ID': 'uid-1',
     })
+    expect(stsBodies).toEqual([{ agent_id: 'paper-agent' }])
     client.invalidateTickets('paper-agent')
     client.invalidateTickets()
   })

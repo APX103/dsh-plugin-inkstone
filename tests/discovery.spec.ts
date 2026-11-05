@@ -9,13 +9,15 @@ function toolResult(entries: unknown[]): unknown {
 describe('parseAgentEntries', () => {
   it('validates rows and skips non-a2a kinds', () => {
     const entries = parseAgentEntries(toolResult([
-      { uri: 'agent://paper', kind: 'a2a', name: 'paper-agent', description: 'writes papers', endpoint_url: 'https://paper.test/a2a', auth_scheme_type: 'orbit_jwt', probe_status: 'ok' },
+      { uri: 'agent://paper-agent', kind: 'a2a', id: 7, name: 'Paper Agent', slug: 'paper-agent', description: 'writes papers', endpoint_url: 'https://paper.test/a2a', auth_scheme_type: 'orbit_jwt', probe_status: 'ok' },
       { kind: 'mcp', name: 'mcp-thing', endpoint_url: 'https://mcp.test' },
       null,
     ]))
     expect(entries).toEqual([{
       name: 'paper-agent',
-      uri: 'agent://paper',
+      label: 'Paper Agent',
+      id: 7,
+      uri: 'agent://paper-agent',
       description: 'writes papers',
       endpointUrl: 'https://paper.test/a2a',
       authScheme: 'orbit_jwt',
@@ -23,10 +25,26 @@ describe('parseAgentEntries', () => {
     }])
   })
 
+  it('uses the slug as the machine id and keeps the display name as the label', () => {
+    // The registry split `name` (display) from `slug` (machine) on 2026-11-03;
+    // STS resolves the slug, so the roster key must not become "Paper Agent".
+    const [entry] = parseAgentEntries(toolResult([{
+      kind: 'a2a', name: 'Paper Agent', slug: 'paper-agent', endpoint_url: 'https://paper.test/a2a',
+    }]))
+    expect(entry).toMatchObject({ name: 'paper-agent', label: 'Paper Agent' })
+  })
+
+  it('falls back to the name when the registry predates slugs', () => {
+    const [entry] = parseAgentEntries(toolResult([{
+      kind: 'a2a', name: 'paper-agent', endpoint_url: 'https://paper.test/a2a',
+    }]))
+    expect(entry).toMatchObject({ name: 'paper-agent', label: 'paper-agent' })
+  })
+
   it('defaults absent optional fields', () => {
     const entries = parseAgentEntries(toolResult([{ name: 'bare', endpoint_url: 'https://bare.test' }]))
     expect(entries[0]).toEqual({
-      name: 'bare', uri: undefined, description: '', endpointUrl: 'https://bare.test', authScheme: 'none', probeStatus: '',
+      name: 'bare', label: 'bare', id: undefined, uri: undefined, description: '', endpointUrl: 'https://bare.test', authScheme: 'none', probeStatus: '',
     })
   })
 

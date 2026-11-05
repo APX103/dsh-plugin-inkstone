@@ -75,8 +75,8 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-inkstone
 | `maxToolServers` | `8` | 并发挂载的 SCP 服务上限 |
 | `maxSelectedTools` | `128` | 所有服务合计可注册的选中工具上限 |
 | `enabledAcademicSources` | 全部六源 | 聚合学术检索 `academic_search` 参与的源（arXiv/Crossref/OpenAlex/PubMed/EuropePMC/bioRxiv）；单源 `search_*` 工具始终注册 |
-| `academicMailto` | 空 | Crossref/OpenAlex 礼貌池联系邮箱；留空不携带 |
-| `openalexApiKey` | 空 | OpenAlex 高级账户 `api_key`；免费档用邮箱即可 |
+| `academicMailto` | 空 | Crossref 礼貌池联系邮箱；OpenAlex 已废弃该参数（2026-02 起忽略），留空不携带 |
+| `openalexApiKey` | 空 | OpenAlex `api_key`，可免费申请；免 Key 每日预算很小（约 100 次检索），填 Key 提升 10 倍 |
 | `ncbiApiKey` | 空 | NCBI E-utilities API key（PubMed 提额） |
 | `localMcps` | `[]` | 本地通用 MCP 服务器：stdio（command/args/env）或 Streamable HTTP（url/headers），`selectedTools` 勾选后才挂载，`mcp__<name>__*` 命名；设置页面板随后提供 |
 

@@ -32,9 +32,9 @@ function basePanelState(over: Partial<ScpHubPanelState> = {}): ScpHubPanelState 
   }
 }
 
-const PAPER_DIRECTORY = { name: 'paper-agent', description: 'writes papers', endpointUrl: 'https://paper.test/a2a', authScheme: 'orbit_jwt', probeStatus: 'ok' }
+const PAPER_DIRECTORY = { name: 'paper-agent', label: 'Paper Agent', description: 'writes papers', endpointUrl: 'https://paper.test/a2a', authScheme: 'orbit_jwt', probeStatus: 'ok' }
 
-const PAPER_ROSTER = { name: 'paper-agent', endpointUrl: 'https://paper.test/a2a', authScheme: 'orbit_jwt', description: '', enabled: true }
+const PAPER_ROSTER = { name: 'paper-agent', label: 'Paper Agent', endpointUrl: 'https://paper.test/a2a', authScheme: 'orbit_jwt', description: '', enabled: true }
 
 function baseState(over: Partial<A2aCardState> = {}): A2aCardState {
   return {
@@ -168,6 +168,16 @@ describe('A2aCard', () => {
     const add = screen.getByRole('button', { name: en.addToRoster })
     fireEvent.click(add)
     expect(actions.addToRoster).toHaveBeenCalledWith(PAPER_DIRECTORY)
+  })
+
+  it('shows the display name while the machine id stays the row title', () => {
+    renderA2a({
+      directory: [PAPER_DIRECTORY],
+      roster: [{ name: 'legacy-agent', endpointUrl: 'https://legacy.test/a2a', authScheme: 'none', description: '', enabled: true }],
+    })
+    expect(screen.getByText('Paper Agent').getAttribute('title')).toBe('paper-agent')
+    // A roster written before the registry split has no label; the machine id stands in.
+    expect(screen.getByText('legacy-agent')).toBeDefined()
   })
 
   it('marks directory agents already on the roster', () => {

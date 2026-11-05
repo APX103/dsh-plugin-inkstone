@@ -41,8 +41,12 @@ export interface A2aStatusView {
 
 /** One directory agent as a settings page reads it. */
 export interface A2aAgentView {
-  /** Registry resource name. */
+  /** Registry machine id (`slug`); the roster key and the STS agent id. */
   readonly name: string
+  /** Display name the registry reports; equals `name` for registries without slugs. */
+  readonly label: string
+  /** Immutable registry primary key; null when the registry omitted it. */
+  readonly id: number | null
   /** Registry resource URI; null when the registry omitted it. */
   readonly uri: string | null
   /** Human-readable description; empty when the registry omitted it. */

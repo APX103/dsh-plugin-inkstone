@@ -18,8 +18,16 @@ const LIST_LIMIT = 100
 
 /** One A2A agent as the registry directory reports it. */
 export interface RegistryAgentEntry {
-  /** Registry resource name; the STS agent id and roster key. */
+  /**
+   * Registry machine id — the top-level `slug` when the registry reports one,
+   * otherwise its `name` (registries older than the slug split). The STS agent
+   * id, the roster key, and the provider id all use this value.
+   */
   readonly name: string
+  /** Display name the registry reports; equals {@link name} when it predates slugs. */
+  readonly label: string
+  /** Immutable registry primary key, when the registry reports one. */
+  readonly id: number | undefined
   /** Registry resource URI, for example `agent://weather-agent`. */
   readonly uri: string | undefined
   /** Human-readable description; empty when the registry omits it. */
@@ -120,14 +128,20 @@ export function parseAgentEntries(result: unknown): RegistryAgentEntry[] {
     if (record.kind !== undefined && record.kind !== 'a2a') {
       continue
     }
-    const name = typeof record.name === 'string' ? record.name : ''
+    const display = typeof record.name === 'string' ? record.name : ''
+    // The registry splits the display name (`name`) from the machine id
+    // (`slug`); STS only resolves the slug once a resource carries one, so the
+    // slug is what every client-side key must use.
+    const slug = typeof record.slug === 'string' && record.slug !== '' ? record.slug : display
     const endpointUrl = typeof record.endpoint_url === 'string' ? record.endpoint_url : ''
-    if (name === '' || endpointUrl === '') {
+    if (slug === '' || endpointUrl === '') {
       throw new RegistryError('discovery-malformed', 'list_resources row lacks name or endpoint_url')
     }
     const authScheme = (typeof record.auth_scheme_type === 'string' ? record.auth_scheme_type : 'none') as RegistryAuthScheme
     entries.push({
-      name,
+      name: slug,
+      label: display === '' ? slug : display,
+      id: typeof record.id === 'number' ? record.id : undefined,
       uri: typeof record.uri === 'string' ? record.uri : undefined,
       description: typeof record.description === 'string' ? record.description : '',
       endpointUrl,

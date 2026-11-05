@@ -61,7 +61,11 @@ export function AcadSearchCard(props: AcadSearchCardProps): ReactNode {
     const timer = window.setTimeout(() => { setSaved(false) }, 2500)
     return () => { window.clearTimeout(timer) }
   }, [saved])
-  const errorText = state.error === 'rejected' ? t('acadRejected') : state.error
+  const errorText = state.error === 'rejected'
+    ? t('acadRejected')
+    : state.error === 'readonly'
+      ? t('acadReadonly')
+      : state.error
   return (
     <div className={css.section}>
       {errorText !== null ? <p className={css.error} role="alert">{t('errorPrefix')}: {errorText}</p> : null}

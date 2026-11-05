@@ -88,12 +88,12 @@ export interface Config extends DelegationConfig {
   maxSelectedTools: number
   /** Aggregate academic search sources; single-source tools stay registered. */
   enabledAcademicSources: Volatile<string[]>
-  /** Polite-pool contact for Crossref/OpenAlex; empty sends none. */
-  academicMailto: string
-  /** Optional OpenAlex premium key; free tier needs only the mailto. */
-  openalexApiKey: string
+  /** Polite-pool contact for Crossref; OpenAlex ignores it (keys replaced that pool). */
+  academicMailto: Volatile<string>
+  /** Optional OpenAlex key; free to create, raises the keyless daily budget 10x. */
+  openalexApiKey: Volatile<string>
   /** Optional NCBI API key for PubMed E-utilities (10x rate headroom). */
-  ncbiApiKey: string
+  ncbiApiKey: Volatile<string>
 }
 
 const agentSchema = z.object({
@@ -155,7 +155,7 @@ export const Config = z.object({
   maxToolServers: z.number().step(1).min(1).max(32).default(8),
   maxSelectedTools: z.number().step(1).min(1).max(1024).default(128),
   enabledAcademicSources: z.array(z.union(['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv'] as const)).volatile().default(['arxiv', 'crossref', 'openalex', 'pubmed', 'europepmc', 'biorxiv']),
-  academicMailto: z.string().default(''),
+  academicMailto: z.string().volatile().default(''),
   openalexApiKey: z.string().volatile().default(''),
   ncbiApiKey: z.string().volatile().default(''),
 })
@@ -244,12 +244,16 @@ export function apply(ctx: Context, config: Config): void {
         const enabled = config.enabledAcademicSources.get().filter((source): source is AcademicSourceId =>
           (ACADEMIC_SOURCES as readonly string[]).includes(source),
         )
+        // Volatile fields are accessor cells; read each snapshot once per rebuild.
+        const mailto = config.academicMailto.get()
+        const openalexApiKey = config.openalexApiKey.get()
+        const ncbiApiKey = config.ncbiApiKey.get()
         disposeTools = registerAcademicSearchTools(mirror, {
           enabledSources: enabled,
           fetchImpl: fetch,
-          ...(config.academicMailto !== '' ? { mailto: config.academicMailto } : {}),
-          ...(config.openalexApiKey !== '' ? { openalexApiKey: config.openalexApiKey } : {}),
-          ...(config.ncbiApiKey !== '' ? { ncbiApiKey: config.ncbiApiKey } : {}),
+          ...(mailto !== '' ? { mailto } : {}),
+          ...(openalexApiKey !== '' ? { openalexApiKey } : {}),
+          ...(ncbiApiKey !== '' ? { ncbiApiKey } : {}),
         })
       }
       rebuild()
